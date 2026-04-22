@@ -7,8 +7,6 @@ const app = express();
 
 app.use(cors());
 
-// Stripe webhook behöver raw body, så den mountas innan express.json()
-// därför ligger /webhook inne i routes/index.js före resten av JSON-middleware
 app.use("/webhook", routes.webhook);
 
 app.use(express.json());

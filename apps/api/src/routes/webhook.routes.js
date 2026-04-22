@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-router.post("/", (req, res) => {
-  res.json({ message: "webhook route ok" });
-});
+const { handleStripeWebhook } = require("../controllers/webhook.controller");
+
+router.post("/", express.raw({ type: "application/json" }), handleStripeWebhook);
 
 module.exports = router;

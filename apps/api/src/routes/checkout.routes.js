@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
-router.post("/", (req, res) => {
-  res.json({ message: "checkout route ok" });
-});
+const {
+  createCheckoutSession,
+} = require("../controllers/checkout.controller");
+
+router.post("/", createCheckoutSession);
 
 module.exports = router;

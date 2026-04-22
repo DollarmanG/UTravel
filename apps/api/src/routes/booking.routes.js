@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-router.get("/:id", (req, res) => {
-  res.json({ message: "booking route ok", id: req.params.id });
-});
+const { getBookingBySessionId } = require("../controllers/booking.controller");
+
+router.get("/:sessionId", getBookingBySessionId);
 
 module.exports = router;

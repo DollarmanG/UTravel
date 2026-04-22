@@ -15,8 +15,3 @@ module.exports = {
   router,
   webhook: webhookRoutes,
 };
-
-console.log("searchRoutes:", typeof searchRoutes, searchRoutes);
-console.log("checkoutRoutes:", typeof checkoutRoutes, checkoutRoutes);
-console.log("bookingRoutes:", typeof bookingRoutes, bookingRoutes);
-console.log("webhookRoutes:", typeof webhookRoutes, webhookRoutes);
