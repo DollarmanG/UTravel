@@ -1,23 +1,24 @@
-const express = require("express");
-const cors = require("cors");
+const express = require('express');
+const cors = require('cors');
 
-const routes = require("./routes");
+const routes = require('./routes');
 
 const app = express();
 
 app.use(cors());
 
-app.use("/webhook", routes.webhook);
+// webhook före express.json()
+app.use('/webhook', routes.webhook);
 
 app.use(express.json());
 
-app.get("/", (_, res) => {
+app.get('/', (_, res) => {
   res.json({
     ok: true,
-    service: "utravel-api",
+    service: 'utravel-api',
   });
 });
 
-app.use("/", routes.router);
+app.use('/', routes.router);
 
 module.exports = app;

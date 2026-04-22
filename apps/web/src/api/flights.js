@@ -1,60 +1,51 @@
 const API_URL = import.meta.env.VITE_API_URL;
 
-export async function searchFlights(payload) {
-  const res = await fetch(`${API_URL}/search`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+async function parseJsonResponse(res) {
+  const raw = await res.text();
 
-  const data = await res.json();
+  let data = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error(`Ogiltigt svar från API: ${raw || 'tomt svar'}`);
+  }
 
   if (!res.ok) {
     throw new Error(
-      typeof data?.error === "string"
+      typeof data?.error === 'string'
         ? data.error
-        : JSON.stringify(data?.error || "Search failed")
+        : JSON.stringify(data?.error || 'API request failed')
     );
   }
 
   return data;
+}
+
+export async function searchFlights(payload) {
+  const res = await fetch(`${API_URL}/search`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonResponse(res);
 }
 
 export async function createCheckout(payload) {
   const res = await fetch(`${API_URL}/checkout`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
   });
 
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(
-      typeof data?.error === "string"
-        ? data.error
-        : JSON.stringify(data?.error || "Checkout failed")
-    );
-  }
-
-  return data;
+  return parseJsonResponse(res);
 }
 
 export async function getBooking(sessionId) {
   const res = await fetch(`${API_URL}/booking/${sessionId}`);
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(
-      typeof data?.error === "string"
-        ? data.error
-        : JSON.stringify(data?.error || "Booking fetch failed")
-    );
-  }
-
-  return data;
+  return parseJsonResponse(res);
 }
