@@ -1,0 +1,258 @@
+.card {
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+}
+
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.airlineMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+}
+
+.airlineLogo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.airlineLogoFallback {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.airlineText {
+  display: grid;
+  gap: 4px;
+}
+
+.airlineName {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.airlineSubtext {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.expiry {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.expiryLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expiryValue {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.mainContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.routeSection {
+  flex: 1;
+  min-width: 280px;
+  display: grid;
+  grid-template-columns: 1fr minmax(140px, 220px) 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.timeBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.timeBlockRight {
+  text-align: right;
+}
+
+.time {
+  font-size: clamp(1.75rem, 3vw, 2.1rem);
+  line-height: 1;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.airportCode {
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.date {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.journeyBlock {
+  text-align: center;
+  display: grid;
+  gap: 8px;
+}
+
+.duration {
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.lineTrack {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.line {
+  height: 2px;
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.lineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+.stops {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.priceSection {
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.priceMeta {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.priceLabel {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.priceValue {
+  font-size: clamp(1.9rem, 3vw, 2.3rem);
+  line-height: 1;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.selectButton {
+  min-width: 160px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-weight: 800;
+  padding: 13px 18px;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.selectButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.26);
+}
+
+@media (max-width: 900px) {
+  .mainContent {
+    align-items: stretch;
+  }
+
+  .routeSection {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .journeyBlock {
+    order: 2;
+  }
+
+  .timeBlockRight {
+    text-align: left;
+  }
+
+  .priceSection {
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+  }
+
+  .priceMeta {
+    text-align: left;
+  }
+
+  .selectButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .topRow {
+    margin-bottom: 16px;
+  }
+
+  .expiry {
+    text-align: left;
+  }
+}

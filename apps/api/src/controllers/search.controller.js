@@ -1,6 +1,43 @@
 const { createOfferRequest } = require('../services/duffel.service');
 
-const EUR_TO_SEK = 11.5;
+const EUR_TO_SEK = Number(process.env.EUR_TO_SEK || 11.5);
+const SERVICE_FEE_SEK = Number(process.env.SERVICE_FEE_SEK || 300);
+
+function getAmountsInSek(totalAmount, totalCurrency) {
+  const amount = Number(totalAmount || 0);
+  const currency = String(totalCurrency || '').toUpperCase();
+
+  if (currency === 'SEK') {
+    const baseAmountSek = amount;
+    const totalAmountSek = baseAmountSek + SERVICE_FEE_SEK;
+
+    return {
+      display_base_amount_sek: Math.round(baseAmountSek),
+      service_fee_sek: SERVICE_FEE_SEK,
+      display_amount_sek: Math.round(totalAmountSek),
+    };
+  }
+
+  if (currency === 'EUR') {
+    const baseAmountSek = amount * EUR_TO_SEK;
+    const totalAmountSek = baseAmountSek + SERVICE_FEE_SEK;
+
+    return {
+      display_base_amount_sek: Math.round(baseAmountSek),
+      service_fee_sek: SERVICE_FEE_SEK,
+      display_amount_sek: Math.round(totalAmountSek),
+    };
+  }
+
+  const baseAmountSek = amount;
+  const totalAmountSek = baseAmountSek + SERVICE_FEE_SEK;
+
+  return {
+    display_base_amount_sek: Math.round(baseAmountSek),
+    service_fee_sek: SERVICE_FEE_SEK,
+    display_amount_sek: Math.round(totalAmountSek),
+  };
+}
 
 async function searchFlights(req, res) {
   try {
@@ -39,20 +76,18 @@ async function searchFlights(req, res) {
     });
 
     const offers = response.data.offers.map((offer) => {
-      const totalAmount = parseFloat(offer.total_amount || '0');
-      const totalCurrency = offer.total_currency;
-
-      let display_amount_sek = null;
-
-      if (totalCurrency === 'EUR') {
-        display_amount_sek = Math.round(totalAmount * EUR_TO_SEK);
-      }
+      const pricing = getAmountsInSek(
+        offer.total_amount,
+        offer.total_currency
+      );
 
       return {
         id: offer.id,
         total_amount: offer.total_amount,
         total_currency: offer.total_currency,
-        display_amount_sek,
+        display_base_amount_sek: pricing.display_base_amount_sek,
+        service_fee_sek: pricing.service_fee_sek,
+        display_amount_sek: pricing.display_amount_sek,
         expires_at: offer.expires_at,
         owner: offer.owner,
         slices: offer.slices,

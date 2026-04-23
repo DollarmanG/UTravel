@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import OfferCard from '../components/OfferCard';
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import OfferCard from "../components/OfferCard";
+import SiteHeader from "../components/SiteHeader";
+import SiteFooter from "../components/SiteFooter";
+import PageHero from "../components/PageHero";
+import styles from "../styles/ResultsPage.module.css";
 
 function getPriceValue(offer) {
   if (offer.display_amount_sek != null) return offer.display_amount_sek;
@@ -20,17 +24,40 @@ function getDurationValue(offer) {
   return hours * 60 + minutes;
 }
 
+function formatTravelMeta(search) {
+  if (!search) return "";
+
+  const parts = [];
+
+  if (search.origin && search.destination) {
+    parts.push(`${search.origin} → ${search.destination}`);
+  }
+
+  if (search.departure_date) {
+    parts.push(`Avresa ${search.departure_date}`);
+  }
+
+  if (search.return_date) {
+    parts.push(`Retur ${search.return_date}`);
+  }
+
+  if (search.adults) {
+    parts.push(`${search.adults} vuxen${search.adults > 1 ? "a" : ""}`);
+  }
+
+  return parts.join(" · ");
+}
+
 export default function ResultsPage() {
   const { state } = useLocation();
   const navigate = useNavigate();
 
   const offers = state?.offers || [];
   const search = state?.search;
-
-  const [sortBy, setSortBy] = useState('cheapest');
+  const [sortBy, setSortBy] = useState("cheapest");
 
   function handleSelectOffer(offer) {
-    navigate('/passengers', {
+    navigate("/passengers", {
       state: {
         offer,
         search,
@@ -41,11 +68,11 @@ export default function ResultsPage() {
   const sortedOffers = useMemo(() => {
     const copied = [...offers];
 
-    if (sortBy === 'cheapest') {
+    if (sortBy === "cheapest") {
       copied.sort((a, b) => getPriceValue(a) - getPriceValue(b));
     }
 
-    if (sortBy === 'fastest') {
+    if (sortBy === "fastest") {
       copied.sort((a, b) => getDurationValue(a) - getDurationValue(b));
     }
 
@@ -54,144 +81,103 @@ export default function ResultsPage() {
 
   if (!search) {
     return (
-      <div style={{ padding: 24, color: 'white' }}>
-        <h2>Ingen sökning hittades</h2>
-        <button onClick={() => navigate('/')}>Tillbaka</button>
+      <div className="pageShell">
+        <SiteHeader />
+
+        <div className={styles.page}>
+          <div className={styles.container}>
+            <div className={styles.stateCard}>
+              <span className={styles.badge}>Ingen sökning hittades</span>
+              <h1 className={styles.stateTitle}>
+                Vi kunde inte visa några resultat
+              </h1>
+              <p className={styles.stateText}>
+                Det verkar som att sidan öppnades utan en aktiv sökning. Gå
+                tillbaka till startsidan och sök på nytt.
+              </p>
+              <button
+                className={styles.primaryButton}
+                onClick={() => navigate("/")}
+              >
+                Till startsidan
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <SiteFooter />
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 1100,
-        margin: '40px auto',
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: 24,
-          padding: 24,
-          marginBottom: 24,
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
-        }}
+    <div className="pageShell">
+      <SiteHeader />
+
+      <PageHero
+        title="Sökresultat"
+        subtitle={`${sortedOffers.length} resa${
+          sortedOffers.length !== 1 ? "or" : ""
+        } hittades`}
+        compact
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 20,
-            flexWrap: 'wrap',
-            alignItems: 'center',
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 36,
-                color: '#0f172a',
-              }}
-            >
-              Flygresultat
-            </h1>
-
-            <p
-              style={{
-                margin: '8px 0 0',
-                color: '#475569',
-                fontSize: 16,
-              }}
-            >
-              {search.origin} → {search.destination}
-              {search.departure_date ? ` · Avresa ${search.departure_date}` : ''}
-              {search.return_date ? ` · Retur ${search.return_date}` : ''}
-              {search.adults ? ` · ${search.adults} vuxen` : ''}
-            </p>
-          </div>
-
+        <div className={styles.heroSearchCard}>
+          <div className={styles.heroSearchMeta}>{formatTravelMeta(search)}</div>
           <button
-            onClick={() => navigate('/')}
-            style={{
-              background: '#e2e8f0',
-              color: '#0f172a',
-              border: 'none',
-              borderRadius: 12,
-              padding: '12px 16px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
+            className={styles.heroSearchButton}
+            onClick={() => navigate("/")}
           >
-            Ny sökning
+            Ändra sökning
           </button>
         </div>
-      </div>
+      </PageHero>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 16,
-          alignItems: 'center',
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ color: 'white', fontSize: 15 }}>
-          {sortedOffers.length} resor hittades
-        </div>
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.toolbar}>
+            <div className={styles.resultCount}>
+              {sortedOffers.length} resa{sortedOffers.length !== 1 ? "or" : ""} hittades
+            </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            color: 'white',
-          }}
-        >
-          <label htmlFor="sortBy">Sortera:</label>
-          <select
-            id="sortBy"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            style={{
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid #334155',
-              background: '#0f172a',
-              color: 'white',
-            }}
-          >
-            <option value="cheapest">Billigast</option>
-            <option value="fastest">Snabbast</option>
-          </select>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gap: 18 }}>
-        {sortedOffers.length === 0 && (
-          <div
-            style={{
-              background: '#ffffff',
-              borderRadius: 20,
-              padding: 24,
-              color: '#0f172a',
-            }}
-          >
-            Inga offers hittades.
+            <div className={styles.sortBox}>
+              <label className={styles.sortLabel} htmlFor="sortBy">
+                Sortera
+              </label>
+              <select
+                id="sortBy"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className={styles.sortSelect}
+              >
+                <option value="cheapest">Billigast</option>
+                <option value="fastest">Snabbast</option>
+              </select>
+            </div>
           </div>
-        )}
 
-        {sortedOffers.map((offer) => (
-          <OfferCard
-            key={offer.id}
-            offer={offer}
-            onSelect={handleSelectOffer}
-          />
-        ))}
+          <div className={styles.resultsGrid}>
+            {sortedOffers.length === 0 ? (
+              <div className={styles.emptyCard}>
+                <h2 className={styles.emptyTitle}>Inga resor hittades</h2>
+                <p className={styles.emptyText}>
+                  Testa att ändra datum, destination eller antal resenärer och
+                  sök igen.
+                </p>
+              </div>
+            ) : (
+              sortedOffers.map((offer) => (
+                <OfferCard
+                  key={offer.id}
+                  offer={offer}
+                  onSelect={handleSelectOffer}
+                />
+              ))
+            )}
+          </div>
+        </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

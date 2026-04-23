@@ -1,0 +1,156 @@
+.page {
+  min-height: 100vh;
+  padding: 48px 20px 72px;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.heroBadgeWrap {
+  display: flex;
+  justify-content: center;
+}
+
+.successCard,
+.stateCard {
+  background: #ffffff;
+  color: var(--text-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.successCard {
+  padding: 28px;
+}
+
+.stateCard {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 36px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.badgeSuccess {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.badgeDanger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.badgeNeutral {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.pageTitle,
+.stateTitle {
+  margin: 16px 0 10px;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.pageSubtitle,
+.stateText {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.infoCard {
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  background: #f8fafc;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.infoLabel {
+  font-size: 13px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.infoValue {
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.actionRow {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.primaryButton,
+.secondaryButton {
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  padding: 14px 18px;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+}
+
+.secondaryButton {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 28px 16px 56px;
+  }
+
+  .successCard,
+  .stateCard {
+    padding: 20px;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actionRow {
+    justify-content: stretch;
+  }
+
+  .actionRow .primaryButton {
+    width: 100%;
+  }
+}

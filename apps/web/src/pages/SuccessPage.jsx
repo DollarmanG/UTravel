@@ -1,32 +1,52 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getBooking } from '../api/flights';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { getBooking } from "../api/flights";
+import SiteHeader from "../components/SiteHeader";
+import SiteFooter from "../components/SiteFooter";
+import PageHero from "../components/PageHero";
+import styles from "../styles/SuccessPage.module.css";
 
 function formatBookingAmount(amount, currency) {
-  if (amount == null || !currency) return '-';
+  if (amount == null || !currency) return "-";
 
-  return new Intl.NumberFormat('sv-SE', {
-    style: 'currency',
+  return new Intl.NumberFormat("sv-SE", {
+    style: "currency",
     currency: currency.toUpperCase(),
   }).format(Number(amount) / 100);
 }
 
 function getStatusLabel(status) {
-  if (status === 'pending_payment') return 'Bekräftar din bokning...';
-  if (status === 'confirmed_test_only') return 'Bokning bekräftad (testläge)';
-  if (status === 'confirmed') return 'Bokning bekräftad';
-  if (status === 'order_failed') return 'Bokningen kunde inte bekräftas';
-  return status || '-';
+  if (status === "pending_payment") return "Bekräftar din bokning...";
+  if (status === "confirmed_test_only") return "Bokning bekräftad (testläge)";
+  if (status === "confirmed") return "Bokning bekräftad";
+  if (status === "order_failed") return "Bokningen kunde inte bekräftas";
+  return status || "-";
+}
+
+function getStatusBadge(status) {
+  if (status === "pending_payment") return "Under behandling";
+  if (status === "confirmed_test_only") return "Bekräftad";
+  if (status === "confirmed") return "Bekräftad";
+  if (status === "order_failed") return "Misslyckades";
+  return "Status";
+}
+
+function getStatusTone(status) {
+  if (status === "order_failed") return "danger";
+  if (status === "confirmed" || status === "confirmed_test_only") return "success";
+  return "neutral";
 }
 
 export default function SuccessPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
-  const sessionId = useMemo(() => params.get('session_id'), [params]);
+  const sessionId = useMemo(() => params.get("session_id"), [params]);
 
   const [booking, setBooking] = useState(null);
-  const [error, setError] = useState(sessionId ? '' : 'Ingen session_id hittades');
+  const [error, setError] = useState(
+    sessionId ? "" : "Ingen session_id hittades."
+  );
   const [loading, setLoading] = useState(!!sessionId);
 
   useEffect(() => {
@@ -45,16 +65,16 @@ export default function SuccessPage() {
         setLoading(false);
 
         if (
-          data.status === 'confirmed_test_only' ||
-          data.status === 'confirmed' ||
-          data.status === 'order_failed'
+          data.status === "confirmed_test_only" ||
+          data.status === "confirmed" ||
+          data.status === "order_failed"
         ) {
           clearInterval(intervalId);
         }
       } catch (err) {
         if (cancelled) return;
 
-        setError(err.message || 'Kunde inte hämta bokning');
+        setError(err.message || "Kunde inte hämta bokning.");
         setLoading(false);
         clearInterval(intervalId);
       }
@@ -71,89 +91,150 @@ export default function SuccessPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 800, margin: '40px auto', padding: 20, color: 'white' }}>
-        <h1>Hämtar bokning...</h1>
+      <div className="pageShell">
+        <SiteHeader />
+
+        <div className={styles.page}>
+          <div className={styles.container}>
+            <div className={styles.stateCard}>
+              <span className={`${styles.badge} ${styles.badgeNeutral}`}>
+                Hämtar bokning
+              </span>
+              <h1 className={styles.stateTitle}>
+                Vi hämtar din bokningsstatus
+              </h1>
+              <p className={styles.stateText}>
+                Vänta ett ögonblick medan vi kontrollerar den senaste
+                informationen.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <SiteFooter />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ maxWidth: 800, margin: '40px auto', padding: 20, color: 'white' }}>
-        <h1>Något gick fel</h1>
-        <pre style={{ whiteSpace: 'pre-wrap' }}>{error}</pre>
-        <button onClick={() => navigate('/')}>Till startsidan</button>
+      <div className="pageShell">
+        <SiteHeader />
+
+        <div className={styles.page}>
+          <div className={styles.container}>
+            <div className={styles.stateCard}>
+              <span className={`${styles.badge} ${styles.badgeDanger}`}>
+                Något gick fel
+              </span>
+              <h1 className={styles.stateTitle}>
+                Vi kunde inte visa bokningen
+              </h1>
+              <p className={styles.stateText}>{error}</p>
+              <button
+                className={styles.primaryButton}
+                onClick={() => navigate("/")}
+              >
+                Till startsidan
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <SiteFooter />
       </div>
     );
   }
 
+  const tone = getStatusTone(booking?.status);
+
   return (
-    <div
-      style={{
-        maxWidth: 820,
-        margin: '40px auto',
-        padding: 20,
-        color: 'white',
-      }}
-    >
-      <div
-        style={{
-          background: '#ffffff',
-          color: '#0f172a',
-          borderRadius: 24,
-          padding: 28,
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
-        }}
+    <div className="pageShell">
+      <SiteHeader />
+
+      <PageHero
+        title="Din bokning är bekräftad"
+        subtitle="Tack för att du reser med oss. Här ser du den senaste informationen om din bokning."
+        compact
       >
-        <h1
-          style={{
-            margin: 0,
-            marginBottom: 20,
-            fontSize: 48,
-            lineHeight: 1.1,
-          }}
-        >
-          Bokningsstatus
-        </h1>
-
-        <div style={{ display: 'grid', gap: 12, fontSize: 20 }}>
-          <p style={{ margin: 0 }}>
-            <strong>Status:</strong> {getStatusLabel(booking?.status)}
-          </p>
-
-          <p style={{ margin: 0 }}>
-            <strong>Email:</strong> {booking?.customer_email || '-'}
-          </p>
-
-          <p style={{ margin: 0 }}>
-            <strong>Belopp:</strong>{' '}
-            {formatBookingAmount(booking?.amount, booking?.currency)}
-          </p>
-
-          {booking?.duffel_order_id && (
-            <p style={{ margin: 0 }}>
-              <strong>Duffel order:</strong> {booking.duffel_order_id}
-            </p>
-          )}
-        </div>
-
-        <div style={{ marginTop: 24 }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              background: '#1d4ed8',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 12,
-              padding: '12px 18px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
+        <div className={styles.heroBadgeWrap}>
+          <span
+            className={`${styles.badge} ${
+              tone === "success"
+                ? styles.badgeSuccess
+                : tone === "danger"
+                ? styles.badgeDanger
+                : styles.badgeNeutral
+            }`}
           >
-            Till startsidan
-          </button>
+            {getStatusBadge(booking?.status)}
+          </span>
+        </div>
+      </PageHero>
+
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.successCard}>
+            <div className={styles.header}>
+              <div>
+                <h2 className={styles.pageTitle}>Bokningsstatus</h2>
+                <p className={styles.pageSubtitle}>
+                  Här ser du den senaste informationen om din betalning och
+                  bokning.
+                </p>
+              </div>
+
+              <button
+                className={styles.secondaryButton}
+                onClick={() => navigate("/")}
+              >
+                Till startsidan
+              </button>
+            </div>
+
+            <div className={styles.infoGrid}>
+              <div className={styles.infoCard}>
+                <span className={styles.infoLabel}>Status</span>
+                <strong className={styles.infoValue}>
+                  {getStatusLabel(booking?.status)}
+                </strong>
+              </div>
+
+              <div className={styles.infoCard}>
+                <span className={styles.infoLabel}>E-post</span>
+                <strong className={styles.infoValue}>
+                  {booking?.customer_email || "-"}
+                </strong>
+              </div>
+
+              <div className={styles.infoCard}>
+                <span className={styles.infoLabel}>Belopp</span>
+                <strong className={styles.infoValue}>
+                  {formatBookingAmount(booking?.amount, booking?.currency)}
+                </strong>
+              </div>
+
+              <div className={styles.infoCard}>
+                <span className={styles.infoLabel}>Duffel-order</span>
+                <strong className={styles.infoValue}>
+                  {booking?.duffel_order_id || "-"}
+                </strong>
+              </div>
+            </div>
+
+            <div className={styles.actionRow}>
+              <button
+                className={styles.primaryButton}
+                onClick={() => navigate("/")}
+              >
+                Boka en ny resa
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }
