@@ -264,6 +264,10 @@ export default function PassengerPage() {
         offer_id: offer.id,
         passengers: checkoutPassengers,
         customer_email: contact.email,
+        addons: {
+          seat_selection: addons.seatSelection,
+          checked_bags: addons.checkedBags,
+        },
       });
 
       window.location.href = data.url;
