@@ -69,16 +69,6 @@ function formatDateOnly(value) {
   }
 }
 
-function getCabinLabel(value) {
-  if (!value) return "Ekonomi";
-  const text = String(value).toLowerCase();
-
-  if (text.includes("business")) return "Business";
-  if (text.includes("first")) return "First Class";
-  if (text.includes("premium")) return "Premium Economy";
-  return "Ekonomi";
-}
-
 function extractTripSummary(booking) {
   const passengers = Array.isArray(booking?.passengers) ? booking.passengers : [];
   const snapshot = booking?.offer_snapshot || {};
@@ -119,14 +109,10 @@ function extractTripSummary(booking) {
     returnSlice?.departure_date ||
     "";
 
-  const cabinRaw =
+  const cabin =
     snapshot?.cabin_class_marketing_name ||
     snapshot?.cabin_class ||
     "Ekonomi";
-
-  const cabin =
-    String(cabinRaw).charAt(0).toUpperCase() +
-    String(cabinRaw).slice(1).toLowerCase();
 
   return {
     originCity,
@@ -135,7 +121,7 @@ function extractTripSummary(booking) {
     destinationCode,
     departDate,
     returnDate,
-    passengerCount: passengers.length || booking?.passenger_count || 1,
+    passengerCount: passengers.length || 1,
     cabin,
   };
 }
@@ -152,17 +138,12 @@ function getStatusLabel(status) {
 
   const value = String(status).toLowerCase();
 
-  if (value.includes("confirmed")) return "Bokning bekräftad";
-  if (value.includes("paid")) return "Betalning mottagen";
-  if (value.includes("pending")) return "Behandling pågår";
+  if (value === "confirmed") return "Bokning bekräftad";
+  if (value === "pending") return "Behandling pågår";
+  if (value === "expired") return "Bokningen har löpt ut";
   if (value.includes("failed")) return "Betalning misslyckades";
 
   return status;
-}
-
-function handleDownloadPdf() {
-  if (!sessionId) return;
-  window.open(`${import.meta.env.VITE_API_URL}/booking/${sessionId}/pdf`, "_blank");
 }
 
 export default function SuccessPage() {
@@ -171,6 +152,7 @@ export default function SuccessPage() {
   const sessionId = searchParams.get("session_id");
 
   const [loading, setLoading] = useState(true);
+  const [bookingStatus, setBookingStatus] = useState("");
   const [booking, setBooking] = useState(null);
   const [error, setError] = useState("");
 
@@ -184,7 +166,8 @@ export default function SuccessPage() {
 
       try {
         const data = await getBooking(sessionId);
-        setBooking(data);
+        setBookingStatus(data?.status || "");
+        setBooking(data?.booking || null);
       } catch (err) {
         setError(err.message || "Kunde inte hämta bokningen.");
       } finally {
@@ -196,7 +179,6 @@ export default function SuccessPage() {
   }, [sessionId]);
 
   const trip = useMemo(() => extractTripSummary(booking || {}), [booking]);
-
   const passengers = Array.isArray(booking?.passengers) ? booking.passengers : [];
 
   const paymentRows = useMemo(() => {
@@ -232,6 +214,11 @@ export default function SuccessPage() {
 
     return rows;
   }, [booking]);
+
+  function handleDownloadPdf() {
+    if (!sessionId) return;
+    window.open(`${import.meta.env.VITE_API_URL}/bookings/${sessionId}/pdf`, "_blank");
+  }
 
   if (loading) {
     return (
@@ -290,16 +277,20 @@ export default function SuccessPage() {
                 <Check size={36} />
               </div>
 
-              <h1 className={styles.heroTitle}>Din bokning är bekräftad</h1>
+              <h1 className={styles.heroTitle}>
+                {bookingStatus === "confirmed"
+                  ? "Din bokning är bekräftad"
+                  : "Din bokning behandlas"}
+              </h1>
 
               <p className={styles.heroText}>
                 Tack för att du reser med oss.
                 <br />
-                Vi ser fram emot att göra din resa minnesvärd.
+                Här ser du den senaste informationen om din bokning.
               </p>
 
               <div className={styles.bookingNumber}>
-                Bokningsnummer: {booking?.duffel_order_id || booking?.reference || "Bekräftad"}
+                Status: {getStatusLabel(bookingStatus)}
               </div>
             </div>
           </section>
@@ -375,7 +366,7 @@ export default function SuccessPage() {
                       <div>
                         <span className={styles.factLabel}>Rutt</span>
                         <strong>
-                          {trip.originCode} – {trip.destinationCode}
+                          {trip.originCode || "-"} – {trip.destinationCode || "-"}
                         </strong>
                       </div>
                     </div>
@@ -384,7 +375,7 @@ export default function SuccessPage() {
                       <ShieldCheck size={18} />
                       <div>
                         <span className={styles.factLabel}>Referens</span>
-                        <strong>{booking?.duffel_order_id || booking?.reference || "-"}</strong>
+                        <strong>{booking?.duffel_order_id || booking?.booking_reference || "-"}</strong>
                       </div>
                     </div>
                   </div>
@@ -408,7 +399,9 @@ export default function SuccessPage() {
                       </div>
                       <div>
                         <strong>{getPassengerDisplayName(passenger, index)}</strong>
-                        <span className={styles.travelerSub}>{booking?.customer_email}</span>
+                        <span className={styles.travelerSub}>
+                          {booking?.customer_email || "-"}
+                        </span>
                       </div>
                     </div>
                   ))
@@ -419,7 +412,9 @@ export default function SuccessPage() {
                     </div>
                     <div>
                       <strong>Resenär</strong>
-                      <span className={styles.travelerSub}>{booking?.customer_email}</span>
+                      <span className={styles.travelerSub}>
+                        {booking?.customer_email || "-"}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -439,8 +434,16 @@ export default function SuccessPage() {
               <div className={styles.paymentStatus}>
                 <CircleCheck size={18} />
                 <div>
-                  <strong>Betalningen är genomförd</strong>
-                  <p>Tack! Vi har tagit emot din betalning.</p>
+                  <strong>
+                    {bookingStatus === "confirmed"
+                      ? "Betalningen är genomförd"
+                      : "Betalningen behandlas"}
+                  </strong>
+                  <p>
+                    {bookingStatus === "confirmed"
+                      ? "Tack! Vi har tagit emot din betalning."
+                      : "Vi inväntar slutlig bekräftelse på din bokning."}
+                  </p>
                 </div>
               </div>
 
@@ -452,7 +455,7 @@ export default function SuccessPage() {
 
                 <div className={styles.infoRow}>
                   <span>Betaldatum</span>
-                  <strong>{formatDateTime(booking?.created_at || booking?.paid_at)}</strong>
+                  <strong>{formatDateTime(booking?.confirmed_at || booking?.created_at)}</strong>
                 </div>
 
                 {paymentRows.map((row) => (
@@ -464,9 +467,11 @@ export default function SuccessPage() {
 
                 <div className={styles.infoRowTotal}>
                   <span>Totalt belopp</span>
-                  <strong>{formatBookingAmount(booking?.amount, booking?.currency)}</strong>
+                  <strong>
+                    {formatBookingAmount(booking?.amount, booking?.currency)}
+                  </strong>
                 </div>
-              </div>
+                </div>
             </article>
 
             <article className={styles.nextStepsCard}>
@@ -476,8 +481,16 @@ export default function SuccessPage() {
                 <div className={styles.stepItemActive}>
                   <CircleCheck size={18} />
                   <div>
-                    <strong>Bekräftelse skickad</strong>
-                    <p>En bekräftelse har skickats till din e-post.</p>
+                    <strong>
+                      {bookingStatus === "confirmed"
+                        ? "Bokning bekräftad"
+                        : "Bokning mottagen"}
+                    </strong>
+                    <p>
+                      {bookingStatus === "confirmed"
+                        ? "En bekräftelse har skickats till din e-post."
+                        : "Vi behandlar din bokning just nu."}
+                    </p>
                   </div>
                 </div>
 
@@ -543,11 +556,3 @@ export default function SuccessPage() {
     </div>
   );
 }
-
-function PlaneBadge() {
-  return (
-    <div className={styles.planeBadge}>
-      <CreditCard size={18} />
-    </div>
-  );
-} 

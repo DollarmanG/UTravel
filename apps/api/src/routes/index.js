@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.use("/search", searchRoutes);
 router.use("/checkout", checkoutRoutes);
-router.use("/booking", bookingRoutes);
+router.use("/bookings", bookingRoutes);
 
 module.exports = {
   router,

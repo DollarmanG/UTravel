@@ -39,6 +39,62 @@ function formatMoney(amount, currency = "SEK") {
   }
 }
 
+function normalizePhoneNumber(value) {
+  const raw = String(value || "").replace(/\s+/g, "");
+
+  if (!raw) return "";
+
+  if (raw.startsWith("+")) {
+    return raw;
+  }
+
+  if (raw.startsWith("00")) {
+    return `+${raw.slice(2)}`;
+  }
+
+  if (raw.startsWith("0")) {
+    return `+46${raw.slice(1)}`;
+  }
+
+  return raw;
+}
+
+function isValidInternationalPhone(value) {
+  return /^\+\d{8,15}$/.test(value);
+}
+
+function getAgeFromDate(dateString) {
+  if (!dateString) return null;
+
+  const birthDate = new Date(dateString);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+function isFutureDate(dateString) {
+  if (!dateString) return false;
+
+  const birthDate = new Date(dateString);
+  if (Number.isNaN(birthDate.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  birthDate.setHours(0, 0, 0, 0);
+
+  return birthDate > today;
+}
+
 function getDisplayPricing(offer, passengerCount) {
   const originalAmount = Number(offer?.total_amount || 0);
   const originalCurrency = String(offer?.total_currency || "").toUpperCase();
@@ -86,6 +142,7 @@ function createPassenger(index) {
   return {
     id: `pas_${index + 1}_${Date.now()}`,
     type: "adult",
+    title: "mr",
     given_name: "",
     family_name: "",
     born_on: "",
@@ -243,9 +300,58 @@ export default function PassengerPage() {
   async function handleCheckout(e) {
     e.preventDefault();
 
-    if (contact.email !== contact.confirmEmail) {
+    const normalizedEmail = contact.email.trim();
+    const normalizedConfirmEmail = contact.confirmEmail.trim();
+    const normalizedPhone = normalizePhoneNumber(contact.phone);
+
+    if (normalizedEmail !== normalizedConfirmEmail) {
       alert("E-postadresserna matchar inte.");
       return;
+    }
+
+    if (!normalizedPhone) {
+      alert("Mobilnummer krävs.");
+      return;
+    }
+
+    if (!isValidInternationalPhone(normalizedPhone)) {
+      alert("Mobilnumret måste anges i internationellt format, till exempel +46700000000.");
+      return;
+    }
+
+    for (let i = 0; i < passengers.length; i += 1) {
+      const passenger = passengers[i];
+      const age = getAgeFromDate(passenger.born_on);
+
+      if (!passenger.given_name?.trim()) {
+        alert(`Förnamn saknas för resenär ${i + 1}.`);
+        return;
+      }
+
+      if (!passenger.family_name?.trim()) {
+        alert(`Efternamn saknas för resenär ${i + 1}.`);
+        return;
+      }
+
+      if (!passenger.born_on) {
+        alert(`Födelsedatum saknas för resenär ${i + 1}.`);
+        return;
+      }
+
+      if (isFutureDate(passenger.born_on)) {
+        alert(`Födelsedatum för resenär ${i + 1} kan inte ligga i framtiden.`);
+        return;
+      }
+
+      if (age == null) {
+        alert(`Ogiltigt födelsedatum för resenär ${i + 1}.`);
+        return;
+      }
+
+      if (passenger.type === "adult" && age < 12) {
+        alert(`Resenär ${i + 1} är inte vuxen enligt valt passagerartyp.`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -254,21 +360,29 @@ export default function PassengerPage() {
       const checkoutPassengers = passengers.map((passenger, index) => ({
         id: passenger.id || `pas_${index + 1}`,
         type: passenger.type || "adult",
-        given_name: passenger.given_name,
-        family_name: passenger.family_name,
+        title: passenger.title || (passenger.gender === "f" ? "ms" : "mr"),
+        given_name: passenger.given_name?.trim(),
+        family_name: passenger.family_name?.trim(),
         born_on: passenger.born_on,
         gender: passenger.gender,
+        nationality: passenger.nationality?.trim(),
+        passport_number: passenger.passport_number?.trim(),
       }));
 
       const data = await createCheckout({
         offer_id: offer.id,
         passengers: checkoutPassengers,
-        customer_email: contact.email,
+        customer_email: normalizedEmail,
+        phone_number: normalizedPhone,
         addons: {
           seat_selection: addons.seatSelection,
           checked_bags: addons.checkedBags,
         },
       });
+
+      if (!data?.url) {
+        throw new Error("Checkout-URL saknas från servern.");
+      }
 
       window.location.href = data.url;
     } catch (err) {
@@ -282,7 +396,6 @@ export default function PassengerPage() {
     return (
       <div className="pageShell">
         <SiteHeader />
-
         <div className={styles.page}>
           <div className={styles.container}>
             <div className={styles.stateCard}>
@@ -298,7 +411,6 @@ export default function PassengerPage() {
             </div>
           </div>
         </div>
-
         <SiteFooter />
       </div>
     );
@@ -307,7 +419,6 @@ export default function PassengerPage() {
   return (
     <div className="pageShell">
       <SiteHeader />
-
       <div className={styles.page}>
         <div className={styles.container}>
           <div className={styles.stepsWrap}>
@@ -345,9 +456,7 @@ export default function PassengerPage() {
 
                   <div className={styles.fieldGridThree}>
                     <div className={styles.fieldGroup}>
-                      <label className={styles.label} htmlFor="email">
-                        E-postadress *
-                      </label>
+                      <label className={styles.label} htmlFor="email">E-postadress *</label>
                       <div className={styles.inputWrap}>
                         <Mail size={18} />
                         <input
@@ -365,16 +474,14 @@ export default function PassengerPage() {
                     </div>
 
                     <div className={styles.fieldGroup}>
-                      <label className={styles.label} htmlFor="phone">
-                        Mobilnummer *
-                      </label>
+                      <label className={styles.label} htmlFor="phone">Mobilnummer *</label>
                       <div className={styles.inputWrap}>
                         <Phone size={18} />
                         <input
                           id="phone"
                           type="tel"
                           className={styles.input}
-                          placeholder="+46 70 123 45 67"
+                          placeholder="+46700000000"
                           value={contact.phone}
                           onChange={(e) =>
                             setContact((current) => ({ ...current, phone: e.target.value }))
@@ -385,9 +492,7 @@ export default function PassengerPage() {
                     </div>
 
                     <div className={styles.fieldGroup}>
-                      <label className={styles.label} htmlFor="confirmEmail">
-                        Bekräfta e-post *
-                      </label>
+                      <label className={styles.label} htmlFor="confirmEmail">Bekräfta e-post *</label>
                       <div className={styles.inputWrap}>
                         <Mail size={18} />
                         <input
@@ -407,22 +512,6 @@ export default function PassengerPage() {
                       </div>
                     </div>
                   </div>
-
-                  <label className={styles.checkboxRow}>
-                    <input
-                      type="checkbox"
-                      checked={contact.newsletter}
-                      onChange={(e) =>
-                        setContact((current) => ({
-                          ...current,
-                          newsletter: e.target.checked,
-                        }))
-                      }
-                    />
-                    <span>
-                      Jag vill få reseinspiration och personliga erbjudanden via e-post.
-                    </span>
-                  </label>
                 </section>
 
                 {passengers.map((passenger, index) => (
@@ -452,41 +541,47 @@ export default function PassengerPage() {
 
                     <div className={styles.fieldGridThree}>
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`given_name_${index}`}>
-                          Förnamn *
-                        </label>
+                        <label className={styles.label} htmlFor={`title_${index}`}>Titel *</label>
+                        <select
+                          id={`title_${index}`}
+                          className={styles.select}
+                          value={passenger.title}
+                          onChange={(e) => updatePassenger(index, "title", e.target.value)}
+                          required
+                        >
+                          <option value="mr">Mr</option>
+                          <option value="ms">Ms</option>
+                          <option value="mrs">Mrs</option>
+                          <option value="miss">Miss</option>
+                        </select>
+                      </div>
+
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.label} htmlFor={`given_name_${index}`}>Förnamn *</label>
                         <input
                           id={`given_name_${index}`}
                           className={styles.inputPlain}
                           placeholder="Förnamn"
                           value={passenger.given_name}
-                          onChange={(e) =>
-                            updatePassenger(index, "given_name", e.target.value)
-                          }
+                          onChange={(e) => updatePassenger(index, "given_name", e.target.value)}
                           required
                         />
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`family_name_${index}`}>
-                          Efternamn *
-                        </label>
+                        <label className={styles.label} htmlFor={`family_name_${index}`}>Efternamn *</label>
                         <input
                           id={`family_name_${index}`}
                           className={styles.inputPlain}
                           placeholder="Efternamn"
                           value={passenger.family_name}
-                          onChange={(e) =>
-                            updatePassenger(index, "family_name", e.target.value)
-                          }
+                          onChange={(e) => updatePassenger(index, "family_name", e.target.value)}
                           required
                         />
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`born_on_${index}`}>
-                          Födelsedatum *
-                        </label>
+                        <label className={styles.label} htmlFor={`born_on_${index}`}>Födelsedatum *</label>
                         <div className={styles.inputWrap}>
                           <CalendarDays size={18} />
                           <input
@@ -501,9 +596,7 @@ export default function PassengerPage() {
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`gender_${index}`}>
-                          Kön
-                        </label>
+                        <label className={styles.label} htmlFor={`gender_${index}`}>Kön</label>
                         <select
                           id={`gender_${index}`}
                           className={styles.select}
@@ -516,33 +609,25 @@ export default function PassengerPage() {
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`nationality_${index}`}>
-                          Nationalitet *
-                        </label>
+                        <label className={styles.label} htmlFor={`nationality_${index}`}>Nationalitet *</label>
                         <input
                           id={`nationality_${index}`}
                           className={styles.inputPlain}
                           placeholder="Sverige"
                           value={passenger.nationality}
-                          onChange={(e) =>
-                            updatePassenger(index, "nationality", e.target.value)
-                          }
+                          onChange={(e) => updatePassenger(index, "nationality", e.target.value)}
                           required
                         />
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`passport_${index}`}>
-                          Passnummer *
-                        </label>
+                        <label className={styles.label} htmlFor={`passport_${index}`}>Passnummer *</label>
                         <input
                           id={`passport_${index}`}
                           className={styles.inputPlain}
                           placeholder="SE1234567"
                           value={passenger.passport_number}
-                          onChange={(e) =>
-                            updatePassenger(index, "passport_number", e.target.value)
-                          }
+                          onChange={(e) => updatePassenger(index, "passport_number", e.target.value)}
                           required
                         />
                       </div>
@@ -680,7 +765,8 @@ export default function PassengerPage() {
                         loading ||
                         !contact.email ||
                         !contact.confirmEmail ||
-                        contact.email !== contact.confirmEmail
+                        contact.email.trim() !== contact.confirmEmail.trim() ||
+                        !contact.phone.trim()
                       }
                       className={styles.primaryButton}
                     >

@@ -39,16 +39,23 @@ function generateBookingReference() {
 
 async function createCheckoutSession(req, res) {
   try {
-    const { offer_id, passengers, customer_email, addons = {} } = req.body;
+    const {
+      offer_id,
+      passengers,
+      customer_email,
+      phone_number,
+      addons = {},
+    } = req.body;
 
     if (
       !offer_id ||
       !Array.isArray(passengers) ||
       passengers.length === 0 ||
-      !customer_email
+      !customer_email ||
+      !phone_number
     ) {
       return res.status(400).json({
-        error: "offer_id, passengers och customer_email krävs",
+        error: "offer_id, passengers, customer_email och phone_number krävs",
       });
     }
 
@@ -163,6 +170,7 @@ async function createCheckoutSession(req, res) {
       offer_snapshot: offer,
       passengers,
       customer_email,
+      phone_number,
       addons: {
         seat_selection: seatSelection,
         checked_bags: checkedBags,

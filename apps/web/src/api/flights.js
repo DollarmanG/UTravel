@@ -46,6 +46,6 @@ export async function createCheckout(payload) {
 }
 
 export async function getBooking(sessionId) {
-  const res = await fetch(`${API_URL}/booking/${sessionId}`);
+  const res = await fetch(`${API_URL}/bookings/${sessionId}`);
   return parseJsonResponse(res);
 }
