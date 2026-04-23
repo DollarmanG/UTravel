@@ -18,6 +18,7 @@ app.get("/", (_, res) => {
   });
 });
 
-app.use("/", routes.router);
+app.use("/api", routes.router);
+app.use("/api/bookings", require("./routes/booking.routes"));
 
 module.exports = app;

@@ -1,6 +1,7 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { getOffer } = require("../services/duffel.service");
 const { pendingBookings } = require("../db/store");
+const { generateBookingReference } = require("../utils/bookingReference");
 
 const EUR_TO_SEK = Number(process.env.EUR_TO_SEK || 11.5);
 const SERVICE_FEE_SEK = Number(process.env.SERVICE_FEE_SEK || 300);
@@ -32,9 +33,62 @@ function convertOfferToSekPerPerson(offer) {
   throw new Error(`Valutan ${originalCurrency} stöds inte ännu`);
 }
 
-function generateBookingReference() {
-  const random = Math.floor(1000000 + Math.random() * 9000000);
-  return `UT${random}`;
+function buildCheckoutLineItems({
+  flightTotalSekMinor,
+  serviceFeeTotalSekMinor,
+  seatTotalSekMinor,
+  baggageTotalSekMinor,
+}) {
+  return [
+    {
+      quantity: 1,
+      price_data: {
+        currency: "sek",
+        unit_amount: flightTotalSekMinor,
+        product_data: {
+          name: "Flygbiljett",
+        },
+      },
+    },
+    {
+      quantity: 1,
+      price_data: {
+        currency: "sek",
+        unit_amount: serviceFeeTotalSekMinor,
+        product_data: {
+          name: "Skatter och avgifter",
+        },
+      },
+    },
+    ...(seatTotalSekMinor > 0
+      ? [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "sek",
+              unit_amount: seatTotalSekMinor,
+              product_data: {
+                name: "Sittplats",
+              },
+            },
+          },
+        ]
+      : []),
+    ...(baggageTotalSekMinor > 0
+      ? [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "sek",
+              unit_amount: baggageTotalSekMinor,
+              product_data: {
+                name: "Incheckat bagage (23 kg)",
+              },
+            },
+          },
+        ]
+      : []),
+  ];
 }
 
 async function createCheckoutSession(req, res) {
@@ -62,10 +116,17 @@ async function createCheckoutSession(req, res) {
     const seatSelection = Boolean(addons.seat_selection);
     const checkedBags = Math.max(0, Number(addons.checked_bags || 0));
     const passengerCount = passengers.length;
-    const bookingReference = generateBookingReference();
+
+    const existingReferences = new Set(
+      Array.from(pendingBookings.values())
+        .map((booking) => booking.bookingReference || booking.booking_reference)
+        .filter(Boolean)
+    );
+
+    const bookingReference = generateBookingReference(existingReferences);
 
     const offerResponse = await getOffer(offer_id);
-    const offer = offerResponse.data;
+    const offer = offerResponse?.data || offerResponse;
 
     const pricing = convertOfferToSekPerPerson(offer);
 
@@ -95,78 +156,47 @@ async function createCheckoutSession(req, res) {
     const baggageTotalSekMinor = Math.round(baggageTotalSek * 100);
     const grandTotalSekMinor = Math.round(grandTotalSek * 100);
 
-    const lineItems = [
-      {
-        price_data: {
-          currency: "sek",
-          product_data: {
-            name: "Flygbiljett - Utravel",
-          },
-          unit_amount: flightAmountPerPersonSekMinor,
-        },
-        quantity: passengerCount,
-      },
-      {
-        price_data: {
-          currency: "sek",
-          product_data: {
-            name: "Skatter och avgifter - Utravel",
-          },
-          unit_amount: serviceFeePerPersonSekMinor,
-        },
-        quantity: passengerCount,
-      },
-    ];
-
-    if (seatSelection) {
-      lineItems.push({
-        price_data: {
-          currency: "sek",
-          product_data: {
-            name: "Sittplats - Utravel",
-          },
-          unit_amount: seatPriceSekMinor,
-        },
-        quantity: passengerCount,
-      });
-    }
-
-    if (checkedBags > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "sek",
-          product_data: {
-            name: "Incheckat bagage (23 kg) - Utravel",
-          },
-          unit_amount: bagPriceSekMinor,
-        },
-        quantity: checkedBags,
-      });
-    }
-
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer_email,
-      currency: "sek",
-      line_items: lineItems,
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+
+      customer_email: customer_email,
+
+      billing_address_collection: "auto",
+      phone_number_collection: {
+        enabled: true,
+      },
+
+      payment_method_types: ["card", "klarna"],
+
+      branding_settings: {
+        display_name: "UTravel",
+      },
+
+      line_items: buildCheckoutLineItems({
+        flightTotalSekMinor,
+        serviceFeeTotalSekMinor,
+        seatTotalSekMinor,
+        baggageTotalSekMinor,
+      }),
+
       metadata: {
-        offer_id,
+        offer_id: offer.id,
         booking_reference: bookingReference,
+        customer_email,
         passenger_count: String(passengerCount),
-        seat_selection: String(seatSelection),
         checked_bags: String(checkedBags),
-        original_currency: pricing.originalCurrency,
-        original_amount: String(pricing.originalAmount),
-        eur_to_sek_rate: String(EUR_TO_SEK),
+        seat_selection: String(seatSelection),
       },
     });
 
     pendingBookings.set(session.id, {
       session_id: session.id,
-      offer_id,
+      stripe_checkout_session_id: session.id,
+      bookingReference,
       booking_reference: bookingReference,
+      offer_id,
       offer_snapshot: offer,
       passengers,
       customer_email,
@@ -191,7 +221,6 @@ async function createCheckoutSession(req, res) {
       baggage_total_sek_minor: baggageTotalSekMinor,
       total_sek_minor: grandTotalSekMinor,
       eur_to_sek_rate: EUR_TO_SEK,
-      stripe_checkout_session_id: session.id,
       created_at: new Date().toISOString(),
     });
 
@@ -208,7 +237,8 @@ async function createCheckoutSession(req, res) {
         seat_price_per_person: seatSelection
           ? Number(SEAT_PRICE_SEK.toFixed(2))
           : 0,
-        bag_price_per_unit: checkedBags > 0 ? Number(BAG_PRICE_SEK.toFixed(2)) : 0,
+        bag_price_per_unit:
+          checkedBags > 0 ? Number(BAG_PRICE_SEK.toFixed(2)) : 0,
         flight_total: Number(flightTotalSek.toFixed(2)),
         service_fee_total: Number(serviceFeeTotalSek.toFixed(2)),
         seat_total: Number(seatTotalSek.toFixed(2)),
@@ -218,6 +248,7 @@ async function createCheckoutSession(req, res) {
     });
   } catch (error) {
     console.error("checkout error:", error.response?.data || error.message);
+
     return res.status(500).json({
       error: error.response?.data || error.message,
     });

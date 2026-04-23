@@ -1,6 +1,7 @@
 const { constructWebhookEvent } = require("../services/stripe.service");
 const { createOrder } = require("../services/duffel.service");
 const { pendingBookings, confirmedBookings } = require("../db/store");
+const { generateBookingReference } = require("../utils/bookingReference");
 
 function mapTitle(passenger) {
   if (passenger?.title) return passenger.title;
@@ -102,7 +103,7 @@ function buildDuffelOrderPayload(booking) {
     metadata: {
       source: "utravel_test_checkout",
       stripe_session_id: booking.session_id || booking.stripe_checkout_session_id || "",
-      booking_reference: booking.booking_reference || "",
+      booking_reference: booking.bookingReference || booking.booking_reference || "",
       customer_email: booking.customer_email,
     },
   };
@@ -132,8 +133,23 @@ async function confirmBookingFromCheckoutSession(session) {
   const orderResponse = await createOrder(orderPayload);
   const orderData = orderResponse?.data || orderResponse;
 
+  console.log("Duffel order created:", {
+    orderId: orderData?.id,
+    bookingReference: pendingBooking?.bookingReference || pendingBooking?.booking_reference,
+  });
+
+  const existingReferences = new Set(
+    Array.from(confirmedBookings.values())
+      .map((booking) => booking.bookingReference || booking.booking_reference)
+      .filter(Boolean)
+  );
+
+  const bookingReference = generateBookingReference(existingReferences);
+
   const confirmedBooking = {
     ...pendingBooking,
+    bookingReference,
+    booking_reference: bookingReference,
     status: "confirmed",
     confirmed_at: new Date().toISOString(),
     stripe_payment_status: session.payment_status || null,

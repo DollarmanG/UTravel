@@ -50,17 +50,17 @@ function getJourneyData(slice) {
 }
 
 export default function OfferCard({ offer, onSelect, variant = "default" }) {
-  const slices = offer.slices || [];
+  const slices = offer?.slices || [];
   const outbound = getJourneyData(slices[0]);
   const inbound = slices[1] ? getJourneyData(slices[1]) : null;
 
   const airlineName =
-    offer.owner?.name ||
+    offer?.owner?.name ||
     slices?.[0]?.segments?.[0]?.operating_carrier?.name ||
     "Flygbolag";
 
-  const airlineLogo = offer.owner?.logo_symbol_url;
-  const totalAmountSek = offer.display_amount_sek ?? offer.total_amount ?? 0;
+  const airlineLogo = offer?.owner?.logo_symbol_url;
+  const totalAmountSek = offer?.display_amount_sek ?? offer?.total_amount ?? 0;
 
   const badgeLabel =
     variant === "best"
@@ -70,6 +70,12 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
       : variant === "fastest"
       ? "Snabbast"
       : "";
+
+  function handleSelect() {
+    if (typeof onSelect === "function") {
+      onSelect(offer);
+    }
+  }
 
   return (
     <article className={styles.card}>
@@ -165,7 +171,7 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
           <button
             type="button"
             className={styles.selectButton}
-            onClick={() => onSelect(offer)}
+            onClick={handleSelect}
           >
             Välj resa
           </button>

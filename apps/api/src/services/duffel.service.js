@@ -145,6 +145,20 @@ async function createOrder(payload) {
   }
 }
 
+async function getPlaceSuggestions(query) {
+  try {
+    const res = await duffel.get("/places/suggestions", {
+      params: {
+        query,
+      },
+    });
+
+    return res.data;
+  } catch (error) {
+    throw buildDuffelError(error);
+  }
+}
+
 function assertOfferBookable(offer) {
   const data = offer?.data || offer;
 
@@ -228,6 +242,7 @@ module.exports = {
   updateOfferPassenger,
   refreshOfferAfterPassengerUpdate,
   createOrder,
+  getPlaceSuggestions,
   assertOfferBookable,
   normalizeOfferPricing,
 };

@@ -18,6 +18,7 @@ import { getBooking } from "../api/flights";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import styles from "../styles/SuccessPage.module.css";
+import { downloadBookingPdf } from "../api/flights";
 
 function formatMoney(amount, currency = "SEK") {
   const value = Number(amount || 0);
@@ -215,11 +216,6 @@ export default function SuccessPage() {
     return rows;
   }, [booking]);
 
-  function handleDownloadPdf() {
-    if (!sessionId) return;
-    window.open(`${import.meta.env.VITE_API_URL}/bookings/${sessionId}/pdf`, "_blank");
-  }
-
   if (loading) {
     return (
       <div className="pageShell">
@@ -299,9 +295,8 @@ export default function SuccessPage() {
             <button
               type="button"
               className={styles.primaryActionButton}
-              onClick={handleDownloadPdf}
+              onClick={() => downloadBookingPdf(booking?.bookingReference)}
             >
-              <Download size={18} />
               Ladda ner bekräftelse (PDF)
             </button>
 
@@ -375,7 +370,7 @@ export default function SuccessPage() {
                       <ShieldCheck size={18} />
                       <div>
                         <span className={styles.factLabel}>Referens</span>
-                        <strong>{booking?.duffel_order_id || booking?.booking_reference || "-"}</strong>
+                        <strong>{booking?.bookingReference || booking?.booking_reference || "-"}</strong>
                       </div>
                     </div>
                   </div>

@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { searchFlights } from "../api/flights";
+import { searchFlights, getPlaceSuggestions } from "../api/flights";
 import styles from "../styles/HomePage.module.css";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
@@ -21,22 +21,34 @@ const FEATURED_TRIPS = [
     tag: "Norge",
     title: "Lofoten – Natur och fjordar",
     meta: "Direktflyg • 7 dagar",
-    price: "fr. 11 995 kr",
     image: "/images/home-lofoten.png",
+    origin: "ARN",
+    destination: "TOS",
+    departureOffsetDays: 21,
+    returnOffsetDays: 28,
+    adults: 2,
   },
   {
     tag: "Island",
     title: "Islands höjdpunkter",
     meta: "Flygresa • 6 dagar",
-    price: "fr. 9 495 kr",
     image: "/images/Island.png",
+    origin: "ARN",
+    destination: "KEF",
+    departureOffsetDays: 30,
+    returnOffsetDays: 36,
+    adults: 2,
   },
   {
     tag: "Japan",
     title: "Tokyo & Kyoto",
     meta: "Flygresa • 10 dagar",
-    price: "fr. 15 995 kr",
     image: "/images/Japan.png",
+    origin: "ARN",
+    destination: "NRT",
+    departureOffsetDays: 45,
+    returnOffsetDays: 55,
+    adults: 2,
   },
 ];
 
@@ -58,83 +70,149 @@ const REVIEWS = [
   },
 ];
 
-const AIRPORT_OPTIONS = [
-  { code: "ARN", city: "Stockholm", country: "Sverige", label: "Stockholm Arlanda (ARN)" },
-  { code: "BMA", city: "Stockholm", country: "Sverige", label: "Stockholm Bromma (BMA)" },
-  { code: "NYO", city: "Stockholm", country: "Sverige", label: "Stockholm Skavsta (NYO)" },
-  { code: "VST", city: "Västerås", country: "Sverige", label: "Stockholm Västerås (VST)" },
-  { code: "GOT", city: "Göteborg", country: "Sverige", label: "Göteborg Landvetter (GOT)" },
-  { code: "MMX", city: "Malmö", country: "Sverige", label: "Malmö Airport (MMX)" },
-
-  { code: "CPH", city: "Köpenhamn", country: "Danmark", label: "Köpenhamn Kastrup (CPH)" },
-  { code: "BLL", city: "Billund", country: "Danmark", label: "Billund Airport (BLL)" },
-
-  { code: "OSL", city: "Oslo", country: "Norge", label: "Oslo Gardermoen (OSL)" },
-  { code: "BGO", city: "Bergen", country: "Norge", label: "Bergen Flesland (BGO)" },
-  { code: "TOS", city: "Tromsø", country: "Norge", label: "Tromsø Airport (TOS)" },
-
-  { code: "HEL", city: "Helsingfors", country: "Finland", label: "Helsingfors Vanda (HEL)" },
-  { code: "KEF", city: "Reykjavik", country: "Island", label: "Keflavik (KEF)" },
-
-  { code: "CDG", city: "Paris", country: "Frankrike", label: "Paris Charles de Gaulle (CDG)" },
-  { code: "ORY", city: "Paris", country: "Frankrike", label: "Paris Orly (ORY)" },
-  { code: "NCE", city: "Nice", country: "Frankrike", label: "Nice Côte d’Azur (NCE)" },
-
-  { code: "LHR", city: "London", country: "Storbritannien", label: "London Heathrow (LHR)" },
-  { code: "LGW", city: "London", country: "Storbritannien", label: "London Gatwick (LGW)" },
-  { code: "MAN", city: "Manchester", country: "Storbritannien", label: "Manchester Airport (MAN)" },
-
-  { code: "FRA", city: "Frankfurt", country: "Tyskland", label: "Frankfurt Airport (FRA)" },
-  { code: "MUC", city: "München", country: "Tyskland", label: "Munich Airport (MUC)" },
-  { code: "BER", city: "Berlin", country: "Tyskland", label: "Berlin Brandenburg (BER)" },
-
-  { code: "AMS", city: "Amsterdam", country: "Nederländerna", label: "Amsterdam Schiphol (AMS)" },
-
-  { code: "MAD", city: "Madrid", country: "Spanien", label: "Madrid Barajas (MAD)" },
-  { code: "BCN", city: "Barcelona", country: "Spanien", label: "Barcelona El Prat (BCN)" },
-  { code: "AGP", city: "Málaga", country: "Spanien", label: "Málaga Airport (AGP)" },
-
-  { code: "FCO", city: "Rom", country: "Italien", label: "Rome Fiumicino (FCO)" },
-  { code: "MXP", city: "Milano", country: "Italien", label: "Milan Malpensa (MXP)" },
-  { code: "VCE", city: "Venedig", country: "Italien", label: "Venice Marco Polo (VCE)" },
-
-  { code: "ATH", city: "Aten", country: "Grekland", label: "Athens International (ATH)" },
-  { code: "IST", city: "Istanbul", country: "Turkiet", label: "Istanbul Airport (IST)" },
-
-  { code: "JFK", city: "New York", country: "USA", label: "New York JFK (JFK)" },
-  { code: "EWR", city: "New York", country: "USA", label: "Newark (EWR)" },
-  { code: "LAX", city: "Los Angeles", country: "USA", label: "Los Angeles (LAX)" },
-  { code: "MIA", city: "Miami", country: "USA", label: "Miami International (MIA)" },
-
-  { code: "DXB", city: "Dubai", country: "Förenade Arabemiraten", label: "Dubai International (DXB)" },
-  { code: "DOH", city: "Doha", country: "Qatar", label: "Doha Hamad (DOH)" },
-  { code: "AUH", city: "Abu Dhabi", country: "Förenade Arabemiraten", label: "Abu Dhabi (AUH)" },
-
-  { code: "JED", city: "Jeddah", country: "Saudiarabien", label: "Jeddah (JED)" },
-  { code: "RUH", city: "Riyadh", country: "Saudiarabien", label: "Riyadh (RUH)" },
-
-  { code: "NRT", city: "Tokyo", country: "Japan", label: "Tokyo Narita (NRT)" },
-  { code: "HND", city: "Tokyo", country: "Japan", label: "Tokyo Haneda (HND)" },
-  { code: "KIX", city: "Osaka", country: "Japan", label: "Osaka Kansai (KIX)" },
-
-  { code: "BKK", city: "Bangkok", country: "Thailand", label: "Bangkok Suvarnabhumi (BKK)" },
-  { code: "SIN", city: "Singapore", country: "Singapore", label: "Singapore Changi (SIN)" },
-];
-
 function getPassengerSummary(adults, children) {
-  const parts = [`${adults} vuxen${adults > 1 ? "a" : ""}`];
+  const adultLabel = adults === 1 ? "vuxen" : "vuxna";
+  const parts = [`${adults} ${adultLabel}`];
+
   if (children > 0) {
     parts.push(`${children} barn 0–2 år`);
   }
+
   return parts.join(" • ");
 }
 
-function groupAirportsByCountry(options) {
+function groupPlacesByCountry(options) {
   return options.reduce((acc, option) => {
-    if (!acc[option.country]) acc[option.country] = [];
-    acc[option.country].push(option);
+    const country = option.countryName || "Övrigt";
+    if (!acc[country]) acc[country] = [];
+    acc[country].push(option);
     return acc;
   }, {});
+}
+
+function formatDateForApi(date) {
+  return date.toISOString().split("T")[0];
+}
+
+function addDays(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return formatDateForApi(date);
+}
+
+function formatShortDate(dateString) {
+  return new Date(dateString).toLocaleDateString("sv-SE", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatSek(amount) {
+  return new Intl.NumberFormat("sv-SE", {
+    style: "currency",
+    currency: "SEK",
+    maximumFractionDigits: 0,
+  }).format(Number(amount || 0));
+}
+
+function getLowestOfferPrice(offers) {
+  if (!Array.isArray(offers) || offers.length === 0) return null;
+
+  return offers.reduce((lowest, offer) => {
+    const current = Number(
+      offer?.display_amount_sek ?? offer?.total_amount ?? 0
+    );
+
+    if (lowest == null) return current;
+    return current < lowest ? current : lowest;
+  }, null);
+}
+
+function normalizePlace(place) {
+  return {
+    id: place.id,
+    type: place.type,
+    city: place.cityName || place.name || "",
+    name: place.name || "",
+    code: place.code || "",
+    countryName: place.countryName || "",
+    label: place.label || "",
+  };
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function placeMatchesQuery(place, query) {
+  const q = normalizeSearchText(query);
+  if (q.length < 2) return false;
+
+  const code = normalizeSearchText(place.code);
+  const city = normalizeSearchText(place.city);
+  const name = normalizeSearchText(place.name);
+  const label = normalizeSearchText(place.label);
+  const country = normalizeSearchText(place.countryName);
+
+  if (code === q) return true;
+  if (city === q) return true;
+  if (name === q) return true;
+
+  if (q.length <= 3) {
+    return code.startsWith(q) || city.startsWith(q) || name.startsWith(q);
+  }
+
+  return (
+    city.includes(q) ||
+    name.includes(q) ||
+    label.includes(q) ||
+    country.includes(q)
+  );
+}
+
+function sortPlacesByRelevance(places, query) {
+  const q = normalizeSearchText(query);
+
+  function score(place) {
+    const code = normalizeSearchText(place.code);
+    const city = normalizeSearchText(place.city);
+    const name = normalizeSearchText(place.name);
+    const label = normalizeSearchText(place.label);
+    const country = normalizeSearchText(place.countryName);
+
+    let value = 0;
+
+    if (code === q) value += 120;
+    if (city === q) value += 110;
+    if (name === q) value += 100;
+
+    if (place.type === "city") value += 25;
+
+    if (code.startsWith(q)) value += 20;
+    if (city.startsWith(q)) value += 18;
+    if (name.startsWith(q)) value += 14;
+    if (label.startsWith(q)) value += 10;
+    if (country.startsWith(q)) value += 8;
+
+    if (city.includes(q)) value += 6;
+    if (name.includes(q)) value += 5;
+    if (label.includes(q)) value += 3;
+
+    return value;
+  }
+
+  return [...places].sort((a, b) => score(b) - score(a));
+}
+
+function getFilteredRelevantPlaces(places, query) {
+  return sortPlacesByRelevance(
+    places.filter((place) => placeMatchesQuery(place, query)),
+    query
+  ).slice(0, 8);
 }
 
 export default function HomePage() {
@@ -156,6 +234,13 @@ export default function HomePage() {
   const [showDestinationResults, setShowDestinationResults] = useState(false);
   const [activeDestinationIndex, setActiveDestinationIndex] = useState(-1);
 
+  const [originOptions, setOriginOptions] = useState([]);
+  const [destinationOptions, setDestinationOptions] = useState([]);
+  const [originSuggestionsLoading, setOriginSuggestionsLoading] =
+    useState(false);
+  const [destinationSuggestionsLoading, setDestinationSuggestionsLoading] =
+    useState(false);
+
   const [departDate, setDepartDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
 
@@ -166,50 +251,28 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [featuredLoading, setFeaturedLoading] = useState("");
+  const [featuredPrices, setFeaturedPrices] = useState({});
 
   const passengerSummary = useMemo(
     () => getPassengerSummary(adults, children),
     [adults, children]
   );
 
-  const filteredOrigins = useMemo(() => {
-    const query = originQuery.trim().toLowerCase();
-
-    if (!query) return AIRPORT_OPTIONS;
-
-    return AIRPORT_OPTIONS.filter((option) => {
-      return (
-        option.country.toLowerCase().includes(query) ||
-        option.city.toLowerCase().includes(query) ||
-        option.code.toLowerCase().includes(query) ||
-        option.label.toLowerCase().includes(query)
-      );
-    });
-  }, [originQuery]);
-
-  const filteredDestinations = useMemo(() => {
-    const query = destinationQuery.trim().toLowerCase();
-
-    if (!query) return AIRPORT_OPTIONS;
-
-    return AIRPORT_OPTIONS.filter((option) => {
-      return (
-        option.country.toLowerCase().includes(query) ||
-        option.city.toLowerCase().includes(query) ||
-        option.code.toLowerCase().includes(query) ||
-        option.label.toLowerCase().includes(query)
-      );
-    });
-  }, [destinationQuery]);
-
   const groupedOrigins = useMemo(
-    () => groupAirportsByCountry(filteredOrigins),
-    [filteredOrigins]
+    () => groupPlacesByCountry(originOptions),
+    [originOptions]
   );
 
   const groupedDestinations = useMemo(
-    () => groupAirportsByCountry(filteredDestinations),
-    [filteredDestinations]
+    () => groupPlacesByCountry(destinationOptions),
+    [destinationOptions]
+  );
+
+  const flatOrigins = useMemo(() => originOptions, [originOptions]);
+  const flatDestinations = useMemo(
+    () => destinationOptions,
+    [destinationOptions]
   );
 
   useEffect(() => {
@@ -239,6 +302,131 @@ export default function HomePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOriginSuggestions() {
+      const query = originQuery.trim();
+
+      if (!showOriginResults || query.length < 2) {
+        setOriginOptions([]);
+        setOriginSuggestionsLoading(false);
+        return;
+      }
+
+      try {
+        setOriginSuggestionsLoading(true);
+
+        const data = await getPlaceSuggestions(query);
+        const normalized = (data.places || []).map(normalizePlace);
+        const relevant = getFilteredRelevantPlaces(normalized, query);
+
+        if (!cancelled) {
+          setOriginOptions(relevant);
+        }
+      } catch {
+        if (!cancelled) {
+          setOriginOptions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setOriginSuggestionsLoading(false);
+        }
+      }
+    }
+
+    const timer = setTimeout(loadOriginSuggestions, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [originQuery, showOriginResults]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDestinationSuggestions() {
+      const query = destinationQuery.trim();
+
+      if (!showDestinationResults || query.length < 2) {
+        setDestinationOptions([]);
+        setDestinationSuggestionsLoading(false);
+        return;
+      }
+
+      try {
+        setDestinationSuggestionsLoading(true);
+
+        const data = await getPlaceSuggestions(query);
+        const normalized = (data.places || []).map(normalizePlace);
+        const relevant = getFilteredRelevantPlaces(normalized, query);
+
+        if (!cancelled) {
+          setDestinationOptions(relevant);
+        }
+      } catch {
+        if (!cancelled) {
+          setDestinationOptions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setDestinationSuggestionsLoading(false);
+        }
+      }
+    }
+
+    const timer = setTimeout(loadDestinationSuggestions, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [destinationQuery, showDestinationResults]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadFeaturedPrices() {
+      const entries = await Promise.all(
+        FEATURED_TRIPS.map(async (trip) => {
+          const form = {
+            origin: trip.origin,
+            destination: trip.destination,
+            departure_date: addDays(trip.departureOffsetDays),
+            return_date: addDays(trip.returnOffsetDays),
+            adults: trip.adults || 2,
+          };
+
+          try {
+            const data = await searchFlights(form);
+            const offers = data?.offers || [];
+            const lowestPrice = getLowestOfferPrice(offers);
+
+            return [
+              trip.title,
+              lowestPrice != null
+                ? `fr. ${formatSek(lowestPrice)}`
+                : "Se aktuella priser",
+            ];
+          } catch {
+            return [trip.title, "Se aktuella priser"];
+          }
+        })
+      );
+
+      if (!isCancelled) {
+        setFeaturedPrices(Object.fromEntries(entries));
+      }
+    }
+
+    loadFeaturedPrices();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
   function handleTripTypeChange(nextTripType) {
     setTripType(nextTripType);
     setError("");
@@ -250,7 +438,7 @@ export default function HomePage() {
 
   function selectOrigin(option) {
     setSelectedOrigin(option);
-    setOriginQuery(`${option.country} – ${option.label}`);
+    setOriginQuery(option.label);
     setShowOriginResults(false);
     setActiveOriginIndex(-1);
     setError("");
@@ -258,32 +446,32 @@ export default function HomePage() {
 
   function selectDestination(option) {
     setSelectedDestination(option);
-    setDestinationQuery(`${option.country} – ${option.label}`);
+    setDestinationQuery(option.label);
     setShowDestinationResults(false);
     setActiveDestinationIndex(-1);
     setError("");
   }
 
   function handleOriginKeyDown(e) {
-    if (!showOriginResults || filteredOrigins.length === 0) return;
+    if (!showOriginResults || flatOrigins.length === 0) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActiveOriginIndex((prev) =>
-        prev < filteredOrigins.length - 1 ? prev + 1 : 0
+        prev < flatOrigins.length - 1 ? prev + 1 : 0
       );
     }
 
     if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveOriginIndex((prev) =>
-        prev > 0 ? prev - 1 : filteredOrigins.length - 1
+        prev > 0 ? prev - 1 : flatOrigins.length - 1
       );
     }
 
     if (e.key === "Enter" && activeOriginIndex >= 0) {
       e.preventDefault();
-      selectOrigin(filteredOrigins[activeOriginIndex]);
+      selectOrigin(flatOrigins[activeOriginIndex]);
     }
 
     if (e.key === "Escape") {
@@ -293,25 +481,25 @@ export default function HomePage() {
   }
 
   function handleDestinationKeyDown(e) {
-    if (!showDestinationResults || filteredDestinations.length === 0) return;
+    if (!showDestinationResults || flatDestinations.length === 0) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActiveDestinationIndex((prev) =>
-        prev < filteredDestinations.length - 1 ? prev + 1 : 0
+        prev < flatDestinations.length - 1 ? prev + 1 : 0
       );
     }
 
     if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveDestinationIndex((prev) =>
-        prev > 0 ? prev - 1 : filteredDestinations.length - 1
+        prev > 0 ? prev - 1 : flatDestinations.length - 1
       );
     }
 
     if (e.key === "Enter" && activeDestinationIndex >= 0) {
       e.preventDefault();
-      selectDestination(filteredDestinations[activeDestinationIndex]);
+      selectDestination(flatDestinations[activeDestinationIndex]);
     }
 
     if (e.key === "Escape") {
@@ -338,7 +526,7 @@ export default function HomePage() {
     const returnDateValue = tripType === "oneway" ? "" : returnDate;
 
     if (!origin) {
-      setError("Välj en avreseflygplats från förslagen.");
+      setError("Välj en avreseflygplats eller stad från förslagen.");
       return;
     }
 
@@ -386,6 +574,59 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleFeaturedTripClick(trip) {
+    setError("");
+    setFeaturedLoading(trip.title);
+
+    const form = {
+      origin: trip.origin,
+      destination: trip.destination,
+      departure_date: addDays(trip.departureOffsetDays),
+      return_date: addDays(trip.returnOffsetDays),
+      adults: trip.adults || 2,
+    };
+
+    try {
+      const data = await searchFlights(form);
+
+      navigate("/results", {
+        state: {
+          offers: data.offers || [],
+          search: form,
+        },
+      });
+    } catch (err) {
+      setError(err.message || "Kunde inte hämta resor för det valda paketet.");
+    } finally {
+      setFeaturedLoading("");
+    }
+  }
+
+  function renderPlaceOption(option, activeIndex, selectedItem, onSelect, flatList) {
+    const absoluteIndex = flatList.findIndex((item) => item.id === option.id);
+
+    return (
+      <button
+        key={option.id}
+        type="button"
+        className={`${styles.destinationOption} ${
+          activeIndex === absoluteIndex ? styles.destinationOptionActive : ""
+        } ${
+          selectedItem?.id === option.id ? styles.destinationOptionSelected : ""
+        }`}
+        onClick={() => onSelect(option)}
+      >
+        <span className={styles.destinationOptionMain}>
+          <span>{option.city || option.name}</span>
+          <span className={styles.destinationCode}>{option.code}</span>
+        </span>
+        <span className={styles.destinationOptionSub}>
+          {option.type === "city" ? "Stad" : "Flygplats"} · {option.label}
+        </span>
+      </button>
+    );
   }
 
   const currentReview = REVIEWS[reviewIndex];
@@ -466,47 +707,36 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {showOriginResults && (
+                    {showOriginResults && originQuery.trim().length >= 2 && (
                       <div className={styles.originPopover}>
                         {Object.entries(groupedOrigins).length > 0 ? (
-                          Object.entries(groupedOrigins).map(([country, airports]) => (
-                            <div key={country} className={styles.destinationGroup}>
-                              <div className={styles.destinationGroupTitle}>{country}</div>
+                          Object.entries(groupedOrigins).map(
+                            ([country, airports]) => (
+                              <div
+                                key={country}
+                                className={styles.destinationGroup}
+                              >
+                                <div className={styles.destinationGroupTitle}>
+                                  {country}
+                                </div>
 
-                              {airports.map((option) => {
-                                const absoluteIndex = filteredOrigins.findIndex(
-                                  (item) => item.code === option.code
-                                );
-
-                                return (
-                                  <button
-                                    key={option.code}
-                                    type="button"
-                                    className={`${styles.destinationOption} ${
-                                      activeOriginIndex === absoluteIndex
-                                        ? styles.destinationOptionActive
-                                        : ""
-                                    } ${
-                                      selectedOrigin?.code === option.code
-                                        ? styles.destinationOptionSelected
-                                        : ""
-                                    }`}
-                                    onClick={() => selectOrigin(option)}
-                                  >
-                                    <span className={styles.destinationOptionMain}>
-                                      {option.city}
-                                    </span>
-                                    <span className={styles.destinationOptionSub}>
-                                      {option.label}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ))
+                                {airports.map((option) =>
+                                  renderPlaceOption(
+                                    option,
+                                    activeOriginIndex,
+                                    selectedOrigin,
+                                    selectOrigin,
+                                    flatOrigins
+                                  )
+                                )}
+                              </div>
+                            )
+                          )
                         ) : (
                           <div className={styles.destinationEmpty}>
-                            Inga avreseflygplatser hittades.
+                            {originSuggestionsLoading
+                              ? "Söker platser..."
+                              : "Inga relevanta avreseplatser hittades."}
                           </div>
                         )}
                       </div>
@@ -515,7 +745,10 @@ export default function HomePage() {
 
                   <div className={styles.heroDivider} />
 
-                  <div className={styles.destinationWrap} ref={destinationBoxRef}>
+                  <div
+                    className={styles.destinationWrap}
+                    ref={destinationBoxRef}
+                  >
                     <div className={styles.heroField}>
                       <div className={styles.heroFieldIcon}>
                         <MapPin size={18} />
@@ -541,51 +774,41 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {showDestinationResults && (
-                      <div className={styles.destinationPopover}>
-                        {Object.entries(groupedDestinations).length > 0 ? (
-                          Object.entries(groupedDestinations).map(([country, airports]) => (
-                            <div key={country} className={styles.destinationGroup}>
-                              <div className={styles.destinationGroupTitle}>{country}</div>
+                    {showDestinationResults &&
+                      destinationQuery.trim().length >= 2 && (
+                        <div className={styles.destinationPopover}>
+                          {Object.entries(groupedDestinations).length > 0 ? (
+                            Object.entries(groupedDestinations).map(
+                              ([country, airports]) => (
+                                <div
+                                  key={country}
+                                  className={styles.destinationGroup}
+                                >
+                                  <div className={styles.destinationGroupTitle}>
+                                    {country}
+                                  </div>
 
-                              {airports.map((option) => {
-                                const absoluteIndex = filteredDestinations.findIndex(
-                                  (item) => item.code === option.code
-                                );
-
-                                return (
-                                  <button
-                                    key={option.code}
-                                    type="button"
-                                    className={`${styles.destinationOption} ${
-                                      activeDestinationIndex === absoluteIndex
-                                        ? styles.destinationOptionActive
-                                        : ""
-                                    } ${
-                                      selectedDestination?.code === option.code
-                                        ? styles.destinationOptionSelected
-                                        : ""
-                                    }`}
-                                    onClick={() => selectDestination(option)}
-                                  >
-                                    <span className={styles.destinationOptionMain}>
-                                      {option.city}
-                                    </span>
-                                    <span className={styles.destinationOptionSub}>
-                                      {option.label}
-                                    </span>
-                                  </button>
-                                );
-                              })}
+                                  {airports.map((option) =>
+                                    renderPlaceOption(
+                                      option,
+                                      activeDestinationIndex,
+                                      selectedDestination,
+                                      selectDestination,
+                                      flatDestinations
+                                    )
+                                  )}
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <div className={styles.destinationEmpty}>
+                              {destinationSuggestionsLoading
+                                ? "Söker platser..."
+                                : "Inga relevanta destinationer hittades."}
                             </div>
-                          ))
-                        ) : (
-                          <div className={styles.destinationEmpty}>
-                            Inga flygplatser hittades för din sökning.
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      )}
                   </div>
 
                   <div className={styles.heroDivider} />
@@ -634,7 +857,10 @@ export default function HomePage() {
 
                   <div className={styles.heroDivider} />
 
-                  <div className={styles.passengerFieldWrap} ref={passengerBoxRef}>
+                  <div
+                    className={styles.passengerFieldWrap}
+                    ref={passengerBoxRef}
+                  >
                     <button
                       type="button"
                       className={styles.passengerButton}
@@ -644,7 +870,9 @@ export default function HomePage() {
                         <Users size={18} />
                       </div>
                       <div className={styles.heroFieldBody}>
-                        <span className={styles.heroFieldLabel}>Resenärer</span>
+                        <span className={styles.heroFieldLabel}>
+                          Resenärer
+                        </span>
                         <span className={styles.passengerSummary}>
                           {passengerSummary}
                         </span>
@@ -662,24 +890,29 @@ export default function HomePage() {
                             onChange={(e) => setAdults(Number(e.target.value))}
                             className={styles.popoverSelect}
                           >
-                            {Array.from({ length: 15 }, (_, index) => index + 1).map(
-                              (value) => (
-                                <option key={value} value={value}>
-                                  {value}
-                                </option>
-                              )
-                            )}
+                            {Array.from(
+                              { length: 15 },
+                              (_, index) => index + 1
+                            ).map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
                         <div className={styles.passengerRow}>
                           <div>
                             <div className={styles.popoverTitle}>Barn</div>
-                            <div className={styles.popoverText}>Endast 0–2 år</div>
+                            <div className={styles.popoverText}>
+                              Endast 0–2 år
+                            </div>
                           </div>
                           <select
                             value={children}
-                            onChange={(e) => setChildren(Number(e.target.value))}
+                            onChange={(e) =>
+                              setChildren(Number(e.target.value))
+                            }
                             className={styles.popoverSelect}
                           >
                             {Array.from({ length: 5 }, (_, index) => index).map(
@@ -724,22 +957,49 @@ export default function HomePage() {
             <h2 className={styles.sectionTitle}>Utvalda resor</h2>
 
             <div className={styles.tripGrid}>
-              {FEATURED_TRIPS.map((trip) => (
-                <article key={trip.title} className={styles.tripCard}>
-                  <div
-                    className={styles.tripImage}
-                    style={{ backgroundImage: `url(${trip.image})` }}
-                  >
-                    <span className={styles.tripTag}>{trip.tag}</span>
-                  </div>
+              {FEATURED_TRIPS.map((trip) => {
+                const departureDate = addDays(trip.departureOffsetDays);
+                const returnDate = addDays(trip.returnOffsetDays);
 
-                  <div className={styles.tripBody}>
-                    <h3 className={styles.tripTitle}>{trip.title}</h3>
-                    <p className={styles.tripMeta}>{trip.meta}</p>
-                    <p className={styles.tripPrice}>{trip.price}</p>
-                  </div>
-                </article>
-              ))}
+                return (
+                  <button
+                    key={trip.title}
+                    type="button"
+                    className={styles.tripCard}
+                    onClick={() => handleFeaturedTripClick(trip)}
+                    disabled={featuredLoading === trip.title}
+                    aria-label={`Visa resor för ${trip.title}`}
+                  >
+                    <div
+                      className={styles.tripImage}
+                      style={{ backgroundImage: `url(${trip.image})` }}
+                    >
+                      <span className={styles.tripTag}>{trip.tag}</span>
+                    </div>
+
+                    <div className={styles.tripBody}>
+                      <h3 className={styles.tripTitle}>{trip.title}</h3>
+                      <p className={styles.tripMeta}>{trip.meta}</p>
+
+                      <div className={styles.tripInfoRow}>
+                        <span className={styles.tripRoute}>
+                          {trip.origin} → {trip.destination}
+                        </span>
+                        <span className={styles.tripDates}>
+                          {formatShortDate(departureDate)} -{" "}
+                          {formatShortDate(returnDate)}
+                        </span>
+                      </div>
+
+                      <p className={styles.tripPrice}>
+                        {featuredLoading === trip.title
+                          ? "Söker..."
+                          : featuredPrices[trip.title] || "Hämtar pris..."}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             <div className={styles.trustBar}>
@@ -755,7 +1015,9 @@ export default function HomePage() {
 
               <div className={styles.trustDivider} />
 
-              <div className={`${styles.trustItem} ${styles.trustItemSpacious}`}>
+              <div
+                className={`${styles.trustItem} ${styles.trustItemSpacious}`}
+              >
                 <Headphones size={22} strokeWidth={1.8} />
                 <div>
                   <h3 className={styles.trustTitle}>Personlig service</h3>
@@ -767,7 +1029,9 @@ export default function HomePage() {
 
               <div className={styles.trustDivider} />
 
-              <div className={`${styles.trustItem} ${styles.trustItemSpacious}`}>
+              <div
+                className={`${styles.trustItem} ${styles.trustItemSpacious}`}
+              >
                 <Leaf size={22} strokeWidth={1.8} />
                 <div>
                   <h3 className={styles.trustTitle}>Hållbart resande</h3>
@@ -789,8 +1053,12 @@ export default function HomePage() {
                     {currentReview.name.charAt(0)}
                   </div>
                   <div>
-                    <div className={styles.reviewName}>{currentReview.name}</div>
-                    <div className={styles.reviewCity}>{currentReview.city}</div>
+                    <div className={styles.reviewName}>
+                      {currentReview.name}
+                    </div>
+                    <div className={styles.reviewCity}>
+                      {currentReview.city}
+                    </div>
                   </div>
                 </div>
               </div>
