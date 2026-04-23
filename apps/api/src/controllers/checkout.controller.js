@@ -32,11 +32,21 @@ function convertOfferToSekPerPerson(offer) {
   throw new Error(`Valutan ${originalCurrency} stöds inte ännu`);
 }
 
+function generateBookingReference() {
+  const random = Math.floor(1000000 + Math.random() * 9000000);
+  return `UT${random}`;
+}
+
 async function createCheckoutSession(req, res) {
   try {
     const { offer_id, passengers, customer_email, addons = {} } = req.body;
 
-    if (!offer_id || !Array.isArray(passengers) || passengers.length === 0 || !customer_email) {
+    if (
+      !offer_id ||
+      !Array.isArray(passengers) ||
+      passengers.length === 0 ||
+      !customer_email
+    ) {
       return res.status(400).json({
         error: "offer_id, passengers och customer_email krävs",
       });
@@ -45,6 +55,7 @@ async function createCheckoutSession(req, res) {
     const seatSelection = Boolean(addons.seat_selection);
     const checkedBags = Math.max(0, Number(addons.checked_bags || 0));
     const passengerCount = passengers.length;
+    const bookingReference = generateBookingReference();
 
     const offerResponse = await getOffer(offer_id);
     const offer = offerResponse.data;
@@ -58,13 +69,23 @@ async function createCheckoutSession(req, res) {
     const serviceFeeTotalSek = serviceFeePerPersonSek * passengerCount;
     const seatTotalSek = seatSelection ? SEAT_PRICE_SEK * passengerCount : 0;
     const baggageTotalSek = BAG_PRICE_SEK * checkedBags;
+
     const grandTotalSek =
       flightTotalSek + serviceFeeTotalSek + seatTotalSek + baggageTotalSek;
 
-    const flightAmountPerPersonSekMinor = Math.round(flightAmountPerPersonSek * 100);
-    const serviceFeePerPersonSekMinor = Math.round(serviceFeePerPersonSek * 100);
+    const flightAmountPerPersonSekMinor = Math.round(
+      flightAmountPerPersonSek * 100
+    );
+    const serviceFeePerPersonSekMinor = Math.round(
+      serviceFeePerPersonSek * 100
+    );
     const seatPriceSekMinor = Math.round(SEAT_PRICE_SEK * 100);
     const bagPriceSekMinor = Math.round(BAG_PRICE_SEK * 100);
+
+    const flightTotalSekMinor = Math.round(flightTotalSek * 100);
+    const serviceFeeTotalSekMinor = Math.round(serviceFeeTotalSek * 100);
+    const seatTotalSekMinor = Math.round(seatTotalSek * 100);
+    const baggageTotalSekMinor = Math.round(baggageTotalSek * 100);
     const grandTotalSekMinor = Math.round(grandTotalSek * 100);
 
     const lineItems = [
@@ -125,6 +146,7 @@ async function createCheckoutSession(req, res) {
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       metadata: {
         offer_id,
+        booking_reference: bookingReference,
         passenger_count: String(passengerCount),
         seat_selection: String(seatSelection),
         checked_bags: String(checkedBags),
@@ -135,7 +157,10 @@ async function createCheckoutSession(req, res) {
     });
 
     pendingBookings.set(session.id, {
+      session_id: session.id,
       offer_id,
+      booking_reference: bookingReference,
+      offer_snapshot: offer,
       passengers,
       customer_email,
       addons: {
@@ -152,12 +177,14 @@ async function createCheckoutSession(req, res) {
       service_fee_per_person_sek_minor: serviceFeePerPersonSekMinor,
       seat_price_sek_minor: seatSelection ? seatPriceSekMinor : 0,
       bag_price_sek_minor: checkedBags > 0 ? bagPriceSekMinor : 0,
-      flight_total_sek_minor: Math.round(flightTotalSek * 100),
-      service_fee_total_sek_minor: Math.round(serviceFeeTotalSek * 100),
-      seat_total_sek_minor: Math.round(seatTotalSek * 100),
-      baggage_total_sek_minor: Math.round(baggageTotalSek * 100),
+      flight_total_sek_minor: flightTotalSekMinor,
+      service_fee_total_sek_minor: serviceFeeTotalSekMinor,
+      seat_total_sek_minor: seatTotalSekMinor,
+      baggage_total_sek_minor: baggageTotalSekMinor,
       total_sek_minor: grandTotalSekMinor,
       eur_to_sek_rate: EUR_TO_SEK,
+      stripe_checkout_session_id: session.id,
+      created_at: new Date().toISOString(),
     });
 
     return res.json({
@@ -166,10 +193,13 @@ async function createCheckoutSession(req, res) {
         display_currency: "SEK",
         original_currency: pricing.originalCurrency,
         original_amount: pricing.originalAmount,
+        booking_reference: bookingReference,
         passenger_count: passengerCount,
         flight_amount_per_person: Number(flightAmountPerPersonSek.toFixed(2)),
         service_fee_per_person: Number(serviceFeePerPersonSek.toFixed(2)),
-        seat_price_per_person: seatSelection ? Number(SEAT_PRICE_SEK.toFixed(2)) : 0,
+        seat_price_per_person: seatSelection
+          ? Number(SEAT_PRICE_SEK.toFixed(2))
+          : 0,
         bag_price_per_unit: checkedBags > 0 ? Number(BAG_PRICE_SEK.toFixed(2)) : 0,
         flight_total: Number(flightTotalSek.toFixed(2)),
         service_fee_total: Number(serviceFeeTotalSek.toFixed(2)),
