@@ -34,105 +34,133 @@ function formatSek(amount) {
   }).format(Number(amount || 0));
 }
 
-function formatExpiry(value) {
-  if (!value) return "-";
-
-  return new Date(value).toLocaleString("sv-SE", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-export default function OfferCard({ offer, onSelect }) {
-  const firstSlice = offer.slices?.[0];
-  const segments = firstSlice?.segments || [];
-
+function getJourneyData(slice) {
+  const segments = slice?.segments || [];
   const firstSegment = segments[0];
   const lastSegment = segments[segments.length - 1];
 
-  const departure = formatDateTime(firstSegment?.departing_at);
-  const arrival = formatDateTime(lastSegment?.arriving_at);
+  return {
+    departure: formatDateTime(firstSegment?.departing_at),
+    arrival: formatDateTime(lastSegment?.arriving_at),
+    originCode: firstSegment?.origin?.iata_code || "-",
+    destinationCode: lastSegment?.destination?.iata_code || "-",
+    duration: formatDuration(slice?.duration),
+    stops: Math.max(segments.length - 1, 0),
+  };
+}
 
-  const stops = Math.max(segments.length - 1, 0);
-  const duration = formatDuration(firstSlice?.duration);
+export default function OfferCard({ offer, onSelect, variant = "default" }) {
+  const slices = offer.slices || [];
+  const outbound = getJourneyData(slices[0]);
+  const inbound = slices[1] ? getJourneyData(slices[1]) : null;
 
   const airlineName =
-    offer.owner?.name || firstSegment?.operating_carrier?.name || "Flygbolag";
+    offer.owner?.name ||
+    slices?.[0]?.segments?.[0]?.operating_carrier?.name ||
+    "Flygbolag";
 
   const airlineLogo = offer.owner?.logo_symbol_url;
-  const totalAmountSek = offer.display_amount_sek ?? 0;
+  const totalAmountSek = offer.display_amount_sek ?? offer.total_amount ?? 0;
+
+  const badgeLabel =
+    variant === "best"
+      ? "Bäst"
+      : variant === "cheapest"
+      ? "Billigast"
+      : variant === "fastest"
+      ? "Snabbast"
+      : "";
 
   return (
     <article className={styles.card}>
-      <div className={styles.topRow}>
-        <div className={styles.airlineMeta}>
-          {airlineLogo ? (
-            <img
-              src={airlineLogo}
-              alt={airlineName}
-              className={styles.airlineLogo}
-            />
-          ) : (
-            <div className={styles.airlineLogoFallback}>
-              {airlineName.charAt(0)}
-            </div>
-          )}
+      {badgeLabel ? <span className={styles.badge}>{badgeLabel}</span> : null}
 
-          <div className={styles.airlineText}>
-            <div className={styles.airlineName}>{airlineName}</div>
-            <div className={styles.airlineSubtext}>
-              {stops === 0 ? "Direktflyg" : `${stops} stopp`}
+      <div className={styles.mainGrid}>
+        <div className={styles.leftCol}>
+          <div className={styles.airlineRow}>
+            {airlineLogo ? (
+              <img
+                src={airlineLogo}
+                alt={airlineName}
+                className={styles.airlineLogo}
+              />
+            ) : (
+              <div className={styles.airlineFallback}>
+                {airlineName.charAt(0)}
+              </div>
+            )}
+
+            <div>
+              <div className={styles.airlineName}>{airlineName}</div>
+              <div className={styles.airlineMeta}>
+                {outbound.stops === 0 ? "Direktflyg" : `${outbound.stops} stopp`}
+              </div>
             </div>
+          </div>
+
+          <div className={styles.journeys}>
+            <div className={styles.journeyRow}>
+              <div className={styles.journeyLabel}>Utresa</div>
+
+              <div className={styles.timeBlock}>
+                <div className={styles.time}>{outbound.departure.time}</div>
+                <div className={styles.code}>{outbound.originCode}</div>
+              </div>
+
+              <div className={styles.routeBlock}>
+                <div className={styles.routeDuration}>{outbound.duration}</div>
+                <div className={styles.routeLine}>
+                  <span className={styles.routeDot} />
+                  <span className={styles.routeTrack} />
+                  <span className={styles.routeDot} />
+                </div>
+                <div className={styles.routeStops}>
+                  {outbound.stops === 0 ? "Direkt" : `${outbound.stops} stopp`}
+                </div>
+              </div>
+
+              <div className={styles.timeBlock}>
+                <div className={styles.time}>{outbound.arrival.time}</div>
+                <div className={styles.code}>{outbound.destinationCode}</div>
+              </div>
+            </div>
+
+            {inbound ? (
+              <div className={styles.journeyRow}>
+                <div className={styles.journeyLabel}>Hemresa</div>
+
+                <div className={styles.timeBlock}>
+                  <div className={styles.time}>{inbound.departure.time}</div>
+                  <div className={styles.code}>{inbound.originCode}</div>
+                </div>
+
+                <div className={styles.routeBlock}>
+                  <div className={styles.routeDuration}>{inbound.duration}</div>
+                  <div className={styles.routeLine}>
+                    <span className={styles.routeDot} />
+                    <span className={styles.routeTrack} />
+                    <span className={styles.routeDot} />
+                  </div>
+                  <div className={styles.routeStops}>
+                    {inbound.stops === 0 ? "Direkt" : `${inbound.stops} stopp`}
+                  </div>
+                </div>
+
+                <div className={styles.timeBlock}>
+                  <div className={styles.time}>{inbound.arrival.time}</div>
+                  <div className={styles.code}>{inbound.destinationCode}</div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className={styles.expiry}>
-          <span className={styles.expiryLabel}>Offert giltig till</span>
-          <span className={styles.expiryValue}>{formatExpiry(offer.expires_at)}</span>
-        </div>
-      </div>
-
-      <div className={styles.mainContent}>
-        <div className={styles.routeSection}>
-          <div className={styles.timeBlock}>
-            <div className={styles.time}>{departure.time}</div>
-            <div className={styles.airportCode}>
-              {firstSegment?.origin?.iata_code || "-"}
-            </div>
-            <div className={styles.date}>{departure.date}</div>
+        <div className={styles.rightCol}>
+          <div className={styles.priceRow}>
+            <span className={styles.priceFrom}>fr.</span>
+            <span className={styles.priceValue}>{formatSek(totalAmountSek)}</span>
           </div>
-
-          <div className={styles.journeyBlock}>
-            <div className={styles.duration}>{duration}</div>
-
-            <div className={styles.lineTrack}>
-              <span className={styles.lineDot} />
-              <span className={styles.line} />
-              <span className={styles.lineDot} />
-            </div>
-
-            <div className={styles.stops}>
-              {stops === 0 ? "Direkt" : `${stops} stopp`}
-            </div>
-          </div>
-
-          <div className={`${styles.timeBlock} ${styles.timeBlockRight}`}>
-            <div className={styles.time}>{arrival.time}</div>
-            <div className={styles.airportCode}>
-              {lastSegment?.destination?.iata_code || "-"}
-            </div>
-            <div className={styles.date}>{arrival.date}</div>
-          </div>
-        </div>
-
-        <div className={styles.priceSection}>
-          <div className={styles.priceMeta}>
-            <span className={styles.priceLabel}>Totalpris</span>
-            <strong className={styles.priceValue}>{formatSek(totalAmountSek)}</strong>
-          </div>
+          <div className={styles.priceSub}>per person</div>
 
           <button
             type="button"
