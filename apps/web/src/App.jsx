@@ -4,6 +4,7 @@ import ResultsPage from "./pages/ResultsPage";
 import PassengerPage from "./pages/PassengerPage";
 import SuccessPage from "./pages/SuccessPage";
 import CancelPage from "./pages/CancelPage";
+import FindBookingPage from "./pages/FindBookingPage";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/passengers" element={<PassengerPage />} />
       <Route path="/success" element={<SuccessPage />} />
       <Route path="/cancel" element={<CancelPage />} />
+      <Route path="/hitta-bokning" element={<FindBookingPage />} />
     </Routes>
   );
 }

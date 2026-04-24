@@ -1,16 +1,13 @@
 import styles from "../styles/OfferCard.module.css";
 
 function formatDateTime(value) {
-  if (!value) return { time: "-", date: "-" };
+  if (!value || typeof value !== "string") return { time: "-", date: "-" };
 
-  const date = new Date(value);
+  const [datePart, timePart] = value.split("T");
 
   return {
-    time: date.toLocaleTimeString("sv-SE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    date: date.toLocaleDateString("sv-SE"),
+    time: timePart ? timePart.slice(0, 5) : "-",
+    date: datePart || "-",
   };
 }
 

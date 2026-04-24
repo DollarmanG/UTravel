@@ -9,15 +9,15 @@ import {
   User,
   Plane,
   Briefcase,
-  Plus,
-  Trash2,
   Armchair,
 } from "lucide-react";
 import { createCheckout } from "../api/flights";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import BookingSteps from "../components/BookingSteps";
+import AppDatePicker from "../components/AppDatePicker";
 import styles from "../styles/PassengerPage.module.css";
+
 
 const EUR_TO_SEK = Number(import.meta.env.VITE_EUR_TO_SEK || 11.5);
 const SERVICE_FEE_SEK = Number(import.meta.env.VITE_SERVICE_FEE_SEK || 300);
@@ -44,17 +44,9 @@ function normalizePhoneNumber(value) {
 
   if (!raw) return "";
 
-  if (raw.startsWith("+")) {
-    return raw;
-  }
-
-  if (raw.startsWith("00")) {
-    return `+${raw.slice(2)}`;
-  }
-
-  if (raw.startsWith("0")) {
-    return `+46${raw.slice(1)}`;
-  }
+  if (raw.startsWith("+")) return raw;
+  if (raw.startsWith("00")) return `+${raw.slice(2)}`;
+  if (raw.startsWith("0")) return `+46${raw.slice(1)}`;
 
   return raw;
 }
@@ -156,7 +148,10 @@ function getPassengerCountFromState(state, offer) {
   const adultsFromState = Number(state?.searchParams?.adults || 0);
   if (adultsFromState > 0) return adultsFromState;
 
-  const offerPassengers = Array.isArray(offer?.passengers) ? offer.passengers.length : 0;
+  const offerPassengers = Array.isArray(offer?.passengers)
+    ? offer.passengers.length
+    : 0;
+
   if (offerPassengers > 0) return offerPassengers;
 
   return 1;
@@ -231,7 +226,9 @@ function extractTripSummary(offer, state, passengerCount) {
     destinationCode,
     departDate,
     returnDate,
-    passengersLabel: `${passengerCount} ${passengerCount === 1 ? "vuxen" : "vuxna"}`,
+    passengersLabel: `${passengerCount} ${
+      passengerCount === 1 ? "vuxen" : "vuxna"
+    }`,
     cabin,
   };
 }
@@ -244,6 +241,7 @@ export default function PassengerPage() {
   const basePassengerCount = getPassengerCountFromState(state, offer);
 
   const [loading, setLoading] = useState(false);
+
   const [contact, setContact] = useState({
     email: "",
     phone: "",
@@ -252,7 +250,9 @@ export default function PassengerPage() {
   });
 
   const [passengers, setPassengers] = useState(() =>
-    Array.from({ length: basePassengerCount }, (_, index) => createPassenger(index))
+    Array.from({ length: basePassengerCount }, (_, index) =>
+      createPassenger(index)
+    )
   );
 
   const [addons, setAddons] = useState({
@@ -267,13 +267,17 @@ export default function PassengerPage() {
     [offer, passengerCount]
   );
 
-  const seatTotal = addons.seatSelection ? SEAT_PRICE_SEK * passengerCount : 0;
+  const seatTotal = addons.seatSelection
+    ? SEAT_PRICE_SEK * passengerCount
+    : 0;
+
   const baggageTotal = BAG_PRICE_SEK * addons.checkedBags;
 
   const grandTotal =
     pricing.flightAmountSek + pricing.serviceFeeSek + seatTotal + baggageTotal;
 
-  const basePerPerson = pricing.pricePerPersonSek + pricing.taxesAndFeesPerPersonSek;
+  const basePerPerson =
+    pricing.pricePerPersonSek + pricing.taxesAndFeesPerPersonSek;
 
   const trip = useMemo(
     () => extractTripSummary(offer, state, passengerCount),
@@ -288,21 +292,19 @@ export default function PassengerPage() {
     );
   }
 
-  function handleAddPassenger() {
-    setPassengers((current) => [...current, createPassenger(current.length)]);
-  }
-
-  function handleRemovePassenger(index) {
-    if (passengers.length <= 1) return;
-    setPassengers((current) => current.filter((_, passengerIndex) => passengerIndex !== index));
-  }
-
   async function handleCheckout(e) {
     e.preventDefault();
 
     const normalizedEmail = contact.email.trim();
     const normalizedConfirmEmail = contact.confirmEmail.trim();
     const normalizedPhone = normalizePhoneNumber(contact.phone);
+
+    if (passengers.length !== basePassengerCount) {
+      alert(
+        `Antalet resenärer måste vara ${basePassengerCount}. Gör en ny sökning om du vill ändra antal.`
+      );
+      return;
+    }
 
     if (normalizedEmail !== normalizedConfirmEmail) {
       alert("E-postadresserna matchar inte.");
@@ -315,7 +317,9 @@ export default function PassengerPage() {
     }
 
     if (!isValidInternationalPhone(normalizedPhone)) {
-      alert("Mobilnumret måste anges i internationellt format, till exempel +46700000000.");
+      alert(
+        "Mobilnumret måste anges i internationellt format, till exempel +46700000000."
+      );
       return;
     }
 
@@ -339,7 +343,9 @@ export default function PassengerPage() {
       }
 
       if (isFutureDate(passenger.born_on)) {
-        alert(`Födelsedatum för resenär ${i + 1} kan inte ligga i framtiden.`);
+        alert(
+          `Födelsedatum för resenär ${i + 1} kan inte ligga i framtiden.`
+        );
         return;
       }
 
@@ -396,21 +402,26 @@ export default function PassengerPage() {
     return (
       <div className="pageShell">
         <SiteHeader />
+
         <div className={styles.page}>
           <div className={styles.container}>
             <div className={styles.stateCard}>
               <span className={styles.badge}>Ingen resa vald</span>
               <h1 className={styles.stateTitle}>Vi hittade ingen vald resa</h1>
               <p className={styles.stateText}>
-                Gå tillbaka till startsidan och sök fram en resa innan du fyller i
-                passageraruppgifterna.
+                Gå tillbaka till startsidan och sök fram en resa innan du fyller
+                i passageraruppgifterna.
               </p>
-              <button className={styles.primaryButton} onClick={() => navigate("/")}>
+              <button
+                className={styles.primaryButton}
+                onClick={() => navigate("/")}
+              >
                 Till startsidan
               </button>
             </div>
           </div>
         </div>
+
         <SiteFooter />
       </div>
     );
@@ -419,6 +430,7 @@ export default function PassengerPage() {
   return (
     <div className="pageShell">
       <SiteHeader />
+
       <div className={styles.page}>
         <div className={styles.container}>
           <div className={styles.stepsWrap}>
@@ -429,7 +441,8 @@ export default function PassengerPage() {
             <div>
               <h1 className={styles.pageTitle}>Resenärsuppgifter</h1>
               <p className={styles.pageSubtitle}>
-                Fyll i uppgifterna för alla resenärer så att vi kan skapa din bokning.
+                Fyll i uppgifterna för alla resenärer så att vi kan skapa din
+                bokning.
               </p>
             </div>
 
@@ -449,14 +462,16 @@ export default function PassengerPage() {
                   <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>Kontaktinformation</h2>
                     <p className={styles.sectionText}>
-                      Vi skickar bokningsbekräftelse och viktiga uppdateringar till dessa
-                      uppgifter.
+                      Vi skickar bokningsbekräftelse och viktiga uppdateringar
+                      till dessa uppgifter.
                     </p>
                   </div>
 
                   <div className={styles.fieldGridThree}>
                     <div className={styles.fieldGroup}>
-                      <label className={styles.label} htmlFor="email">E-postadress *</label>
+                      <label className={styles.label} htmlFor="email">
+                        E-postadress *
+                      </label>
                       <div className={styles.inputWrap}>
                         <Mail size={18} />
                         <input
@@ -466,7 +481,10 @@ export default function PassengerPage() {
                           placeholder="namn@exempel.se"
                           value={contact.email}
                           onChange={(e) =>
-                            setContact((current) => ({ ...current, email: e.target.value }))
+                            setContact((current) => ({
+                              ...current,
+                              email: e.target.value,
+                            }))
                           }
                           required
                         />
@@ -474,7 +492,9 @@ export default function PassengerPage() {
                     </div>
 
                     <div className={styles.fieldGroup}>
-                      <label className={styles.label} htmlFor="phone">Mobilnummer *</label>
+                      <label className={styles.label} htmlFor="phone">
+                        Mobilnummer *
+                      </label>
                       <div className={styles.inputWrap}>
                         <Phone size={18} />
                         <input
@@ -484,7 +504,10 @@ export default function PassengerPage() {
                           placeholder="+46700000000"
                           value={contact.phone}
                           onChange={(e) =>
-                            setContact((current) => ({ ...current, phone: e.target.value }))
+                            setContact((current) => ({
+                              ...current,
+                              phone: e.target.value,
+                            }))
                           }
                           required
                         />
@@ -492,7 +515,9 @@ export default function PassengerPage() {
                     </div>
 
                     <div className={styles.fieldGroup}>
-                      <label className={styles.label} htmlFor="confirmEmail">Bekräfta e-post *</label>
+                      <label className={styles.label} htmlFor="confirmEmail">
+                        Bekräfta e-post *
+                      </label>
                       <div className={styles.inputWrap}>
                         <Mail size={18} />
                         <input
@@ -523,30 +548,31 @@ export default function PassengerPage() {
                           {index === 0 ? " (Huvudresenär)" : ""}
                         </h2>
                         <p className={styles.sectionText}>
-                          Kontrollera att namnet matchar pass eller nationellt ID.
+                          Kontrollera att namnet matchar pass eller nationellt
+                          ID.
                         </p>
                       </div>
 
-                      {passengers.length > 1 && (
-                        <button
-                          type="button"
-                          className={styles.iconButton}
-                          onClick={() => handleRemovePassenger(index)}
-                          aria-label={`Ta bort resenär ${index + 1}`}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
+                      <span className={styles.lockedPassengerText}>
+                        Antal resenärer är låst
+                      </span>
                     </div>
 
                     <div className={styles.fieldGridThree}>
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`title_${index}`}>Titel *</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`title_${index}`}
+                        >
+                          Titel *
+                        </label>
                         <select
                           id={`title_${index}`}
                           className={styles.select}
                           value={passenger.title}
-                          onChange={(e) => updatePassenger(index, "title", e.target.value)}
+                          onChange={(e) =>
+                            updatePassenger(index, "title", e.target.value)
+                          }
                           required
                         >
                           <option value="mr">Mr</option>
@@ -557,51 +583,86 @@ export default function PassengerPage() {
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`given_name_${index}`}>Förnamn *</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`given_name_${index}`}
+                        >
+                          Förnamn *
+                        </label>
                         <input
                           id={`given_name_${index}`}
                           className={styles.inputPlain}
                           placeholder="Förnamn"
                           value={passenger.given_name}
-                          onChange={(e) => updatePassenger(index, "given_name", e.target.value)}
+                          onChange={(e) =>
+                            updatePassenger(
+                              index,
+                              "given_name",
+                              e.target.value
+                            )
+                          }
                           required
                         />
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`family_name_${index}`}>Efternamn *</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`family_name_${index}`}
+                        >
+                          Efternamn *
+                        </label>
                         <input
                           id={`family_name_${index}`}
                           className={styles.inputPlain}
                           placeholder="Efternamn"
                           value={passenger.family_name}
-                          onChange={(e) => updatePassenger(index, "family_name", e.target.value)}
+                          onChange={(e) =>
+                            updatePassenger(
+                              index,
+                              "family_name",
+                              e.target.value
+                            )
+                          }
                           required
                         />
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`born_on_${index}`}>Födelsedatum *</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`born_on_${index}`}
+                        >
+                          Födelsedatum *
+                        </label>
                         <div className={styles.inputWrap}>
                           <CalendarDays size={18} />
-                          <input
+                          <AppDatePicker
                             id={`born_on_${index}`}
-                            type="date"
-                            className={styles.input}
                             value={passenger.born_on}
-                            onChange={(e) => updatePassenger(index, "born_on", e.target.value)}
+                            onChange={(value) => updatePassenger(index, "born_on", value)}
+                            placeholder="Välj födelsedatum"
+                            maxDate={new Date()}
+                            className={styles.input}
                             required
                           />
                         </div>
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`gender_${index}`}>Kön</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`gender_${index}`}
+                        >
+                          Kön
+                        </label>
                         <select
                           id={`gender_${index}`}
                           className={styles.select}
                           value={passenger.gender}
-                          onChange={(e) => updatePassenger(index, "gender", e.target.value)}
+                          onChange={(e) =>
+                            updatePassenger(index, "gender", e.target.value)
+                          }
                         >
                           <option value="m">Man</option>
                           <option value="f">Kvinna</option>
@@ -609,42 +670,53 @@ export default function PassengerPage() {
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`nationality_${index}`}>Nationalitet *</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`nationality_${index}`}
+                        >
+                          Nationalitet *
+                        </label>
                         <input
                           id={`nationality_${index}`}
                           className={styles.inputPlain}
                           placeholder="Sverige"
                           value={passenger.nationality}
-                          onChange={(e) => updatePassenger(index, "nationality", e.target.value)}
+                          onChange={(e) =>
+                            updatePassenger(
+                              index,
+                              "nationality",
+                              e.target.value
+                            )
+                          }
                           required
                         />
                       </div>
 
                       <div className={styles.fieldGroup}>
-                        <label className={styles.label} htmlFor={`passport_${index}`}>Passnummer *</label>
+                        <label
+                          className={styles.label}
+                          htmlFor={`passport_${index}`}
+                        >
+                          Passnummer *
+                        </label>
                         <input
                           id={`passport_${index}`}
                           className={styles.inputPlain}
                           placeholder="SE1234567"
                           value={passenger.passport_number}
-                          onChange={(e) => updatePassenger(index, "passport_number", e.target.value)}
+                          onChange={(e) =>
+                            updatePassenger(
+                              index,
+                              "passport_number",
+                              e.target.value
+                            )
+                          }
                           required
                         />
                       </div>
                     </div>
                   </section>
                 ))}
-
-                <section className={styles.addPassengerSection}>
-                  <button
-                    type="button"
-                    className={styles.addPassengerButton}
-                    onClick={handleAddPassenger}
-                  >
-                    <Plus size={18} />
-                    Lägg till resenär
-                  </button>
-                </section>
 
                 <section className={styles.formSection}>
                   <div className={styles.sectionHeader}>
@@ -696,9 +768,12 @@ export default function PassengerPage() {
                       </div>
 
                       <div className={styles.addonContent}>
-                        <h3 className={styles.addonTitle}>Incheckat bagage (23 kg)</h3>
+                        <h3 className={styles.addonTitle}>
+                          Incheckat bagage (23 kg)
+                        </h3>
                         <p className={styles.addonText}>
-                          Lägg till bagage och res utan bekymmer. Exakt vikt kan variera beroende på flygbolag.
+                          Lägg till bagage och res utan bekymmer. Exakt vikt kan
+                          variera beroende på flygbolag.
                         </p>
                       </div>
 
@@ -709,14 +784,19 @@ export default function PassengerPage() {
                           onClick={() =>
                             setAddons((current) => ({
                               ...current,
-                              checkedBags: Math.max(0, current.checkedBags - 1),
+                              checkedBags: Math.max(
+                                0,
+                                current.checkedBags - 1
+                              ),
                             }))
                           }
                         >
                           −
                         </button>
 
-                        <span className={styles.counterValue}>{addons.checkedBags}</span>
+                        <span className={styles.counterValue}>
+                          {addons.checkedBags}
+                        </span>
 
                         <button
                           type="button"
@@ -745,8 +825,8 @@ export default function PassengerPage() {
                   <div className={styles.termsRow}>
                     <input id="terms" type="checkbox" required />
                     <label htmlFor="terms">
-                      Jag har läst och godkänner villkoren, integritetspolicyn och
-                      resevillkoren.
+                      Jag har läst och godkänner villkoren, integritetspolicyn
+                      och resevillkoren.
                     </label>
                   </div>
 
@@ -770,7 +850,9 @@ export default function PassengerPage() {
                       }
                       className={styles.primaryButton}
                     >
-                      {loading ? "Skickar till betalning..." : "Fortsätt till betalning"}
+                      {loading
+                        ? "Skickar till betalning..."
+                        : "Fortsätt till betalning"}
                     </button>
                   </div>
                 </section>
@@ -804,7 +886,9 @@ export default function PassengerPage() {
                         <CalendarDays size={15} />
                         <span>
                           {formatDate(trip.departDate)}
-                          {trip.returnDate ? ` – ${formatDate(trip.returnDate)}` : ""}
+                          {trip.returnDate
+                            ? ` – ${formatDate(trip.returnDate)}`
+                            : ""}
                         </span>
                       </div>
 
@@ -825,7 +909,8 @@ export default function PassengerPage() {
                         {formatMoney(grandTotal, "SEK")}
                       </strong>
                       <span className={styles.tripPriceSub}>
-                        {formatMoney(basePerPerson, "SEK")} per person inkl. skatter och avgifter
+                        {formatMoney(basePerPerson, "SEK")} per person inkl.
+                        skatter och avgifter
                       </span>
                     </div>
                   </div>

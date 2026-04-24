@@ -15,6 +15,7 @@ import { searchFlights, getPlaceSuggestions } from "../api/flights";
 import styles from "../styles/HomePage.module.css";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
+import AppDatePicker, { parseDateString } from "../components/AppDatePicker";
 
 const FEATURED_TRIPS = [
   {
@@ -395,7 +396,7 @@ export default function HomePage() {
             destination: trip.destination,
             departure_date: addDays(trip.departureOffsetDays),
             return_date: addDays(trip.returnOffsetDays),
-            adults: trip.adults || 2,
+            adults: adults,
           };
 
           try {
@@ -819,15 +820,20 @@ export default function HomePage() {
                     </div>
                     <div className={styles.heroFieldBody}>
                       <span className={styles.heroFieldLabel}>Avresa</span>
-                      <input
-                        type="date"
+                        <AppDatePicker
                         value={departDate}
-                        onChange={(e) => {
-                          setDepartDate(e.target.value);
-                          setError("");
+                        onChange={(value) => {
+                            setDepartDate(value);
+                            setError("");
+
+                            if (returnDate && value && returnDate < value) {
+                            setReturnDate("");
+                            }
                         }}
+                        placeholder="Välj avresedatum"
+                        minDate={new Date()}
                         className={styles.heroInput}
-                      />
+                        />
                     </div>
                   </div>
 
@@ -841,15 +847,16 @@ export default function HomePage() {
                         </div>
                         <div className={styles.heroFieldBody}>
                           <span className={styles.heroFieldLabel}>Hemresa</span>
-                          <input
-                            type="date"
+                            <AppDatePicker
                             value={returnDate}
-                            onChange={(e) => {
-                              setReturnDate(e.target.value);
-                              setError("");
+                            onChange={(value) => {
+                                setReturnDate(value);
+                                setError("");
                             }}
+                            placeholder="Välj hemresedatum"
+                            minDate={parseDateString(departDate) || new Date()}
                             className={styles.heroInput}
-                          />
+                            />
                         </div>
                       </div>
                     </>
@@ -991,11 +998,15 @@ export default function HomePage() {
                         </span>
                       </div>
 
-                      <p className={styles.tripPrice}>
+                        <p className={styles.tripPrice}>
                         {featuredLoading === trip.title
-                          ? "Söker..."
-                          : featuredPrices[trip.title] || "Hämtar pris..."}
-                      </p>
+                            ? "Söker..."
+                            : featuredPrices[trip.title] || "Hämtar pris..."}
+                        </p>
+
+                        <p className={styles.tripPriceSub}>
+                        per person • baserat på {trip.adults} vuxna
+                        </p>
                     </div>
                   </button>
                 );

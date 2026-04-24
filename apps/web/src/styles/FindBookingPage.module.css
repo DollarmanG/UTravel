@@ -1,0 +1,162 @@
+.page {
+  min-height: calc(100vh - 80px);
+  background: #f6f3ee;
+  padding: 56px 20px;
+}
+
+.card {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #172554;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 42px;
+  line-height: 1.1;
+  margin: 0 0 10px;
+  color: #102033;
+}
+
+.subtitle {
+  color: #64748b;
+  margin-bottom: 28px;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.input {
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  padding: 0 16px;
+  font-size: 16px;
+}
+
+.button {
+  height: 54px;
+  border-radius: 14px;
+  border: none;
+  background: #112238;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.error {
+  padding: 14px;
+  border-radius: 14px;
+  background: #fee2e2;
+  color: #991b1b;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+.result {
+  margin-top: 28px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 28px;
+}
+
+.resultTitle {
+  font-size: 28px;
+  margin-bottom: 16px;
+  color: #102033;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.infoCard {
+  padding: 18px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.muted {
+  margin-top: 6px;
+  color: #64748b;
+}
+
+.sectionTitle {
+  margin-top: 28px;
+  margin-bottom: 12px;
+}
+
+.passengerList {
+  display: grid;
+  gap: 10px;
+}
+
+.passenger {
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paymentBox {
+  margin-top: 28px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.paymentBox h3 {
+  margin-top: 0;
+}
+
+.total {
+  font-size: 20px;
+}
+
+.pdfButton {
+  margin-top: 24px;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: 14px;
+  border: none;
+  background: #112238;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}

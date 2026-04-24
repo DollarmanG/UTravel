@@ -1,17 +1,19 @@
 const { constructWebhookEvent } = require("../services/stripe.service");
 const { createOrder } = require("../services/duffel.service");
-const { pendingBookings, confirmedBookings } = require("../db/store");
-const { generateBookingReference } = require("../utils/bookingReference");
+const {
+  getBookingBySessionId,
+  confirmBooking,
+  markBookingExpired,
+} = require("../services/booking.service");
 
 function mapTitle(passenger) {
   if (passenger?.title) return passenger.title;
-
   return passenger?.gender === "f" ? "ms" : "mr";
 }
 
 function getDuffelPassengerId(booking, index) {
-  const offerPassengers = Array.isArray(booking?.offer_snapshot?.passengers)
-    ? booking.offer_snapshot.passengers
+  const offerPassengers = Array.isArray(booking?.offerSnapshot?.passengers)
+    ? booking.offerSnapshot.passengers
     : [];
 
   const duffelPassenger = offerPassengers[index];
@@ -24,23 +26,23 @@ function getDuffelPassengerId(booking, index) {
 }
 
 function mapPassengerForDuffel(passenger, booking, index) {
-  if (!passenger?.given_name) {
+  if (!passenger?.givenName) {
     throw new Error(`given_name saknas för passagerare ${index + 1}.`);
   }
 
-  if (!passenger?.family_name) {
+  if (!passenger?.familyName) {
     throw new Error(`family_name saknas för passagerare ${index + 1}.`);
   }
 
-  if (!passenger?.born_on) {
+  if (!passenger?.bornOn) {
     throw new Error(`born_on saknas för passagerare ${index + 1}.`);
   }
 
-  if (!booking?.customer_email) {
+  if (!booking?.customerEmail) {
     throw new Error("customer_email saknas i booking.");
   }
 
-  if (!booking?.phone_number) {
+  if (!booking?.phoneNumber) {
     throw new Error("phone_number saknas i booking.");
   }
 
@@ -48,12 +50,12 @@ function mapPassengerForDuffel(passenger, booking, index) {
     id: getDuffelPassengerId(booking, index),
     type: passenger.type || "adult",
     title: mapTitle(passenger),
-    given_name: passenger.given_name,
-    family_name: passenger.family_name,
-    born_on: passenger.born_on,
+    given_name: passenger.givenName,
+    family_name: passenger.familyName,
+    born_on: passenger.bornOn,
     gender: passenger.gender || "m",
-    email: booking.customer_email,
-    phone_number: booking.phone_number,
+    email: booking.customerEmail,
+    phone_number: booking.phoneNumber,
   };
 }
 
@@ -62,7 +64,7 @@ function buildDuffelOrderPayload(booking) {
     throw new Error("Booking saknas.");
   }
 
-  if (!booking.offer_id) {
+  if (!booking.offerId) {
     throw new Error("offer_id saknas i booking.");
   }
 
@@ -70,16 +72,16 @@ function buildDuffelOrderPayload(booking) {
     throw new Error("passengers saknas i booking.");
   }
 
-  if (!booking.customer_email) {
+  if (!booking.customerEmail) {
     throw new Error("customer_email saknas i booking.");
   }
 
-  if (!booking.phone_number) {
+  if (!booking.phoneNumber) {
     throw new Error("phone_number saknas i booking.");
   }
 
-  const originalAmount = Number(booking.original_amount || 0);
-  const originalCurrency = String(booking.original_currency || "").toUpperCase();
+  const originalAmount = Number(booking.originalAmount || 0);
+  const originalCurrency = String(booking.originalCurrency || "").toUpperCase();
 
   if (!originalAmount || !originalCurrency) {
     throw new Error("original_amount eller original_currency saknas i booking.");
@@ -91,7 +93,7 @@ function buildDuffelOrderPayload(booking) {
 
   return {
     type: "instant",
-    selected_offers: [booking.offer_id],
+    selected_offers: [booking.offerId],
     payments: [
       {
         type: "balance",
@@ -102,9 +104,10 @@ function buildDuffelOrderPayload(booking) {
     passengers,
     metadata: {
       source: "utravel_test_checkout",
-      stripe_session_id: booking.session_id || booking.stripe_checkout_session_id || "",
-      booking_reference: booking.bookingReference || booking.booking_reference || "",
-      customer_email: booking.customer_email,
+      stripe_session_id:
+        booking.sessionId || booking.stripeCheckoutSessionId || "",
+      booking_reference: booking.bookingReference || "",
+      customer_email: booking.customerEmail,
     },
   };
 }
@@ -116,57 +119,39 @@ async function confirmBookingFromCheckoutSession(session) {
     throw new Error("Stripe session id saknas.");
   }
 
-  if (confirmedBookings.has(sessionId)) {
+  const booking = await getBookingBySessionId(sessionId);
+
+  if (!booking) {
+    throw new Error(`Ingen booking hittades för session ${sessionId}.`);
+  }
+
+  if (booking.status === "confirmed") {
     return {
       alreadyConfirmed: true,
-      booking: confirmedBookings.get(sessionId),
+      booking,
     };
   }
 
-  if (!pendingBookings.has(sessionId)) {
-    throw new Error(`Ingen pending booking hittades för session ${sessionId}.`);
-  }
-
-  const pendingBooking = pendingBookings.get(sessionId);
-
-  const orderPayload = buildDuffelOrderPayload(pendingBooking);
+  const orderPayload = buildDuffelOrderPayload(booking);
   const orderResponse = await createOrder(orderPayload);
   const orderData = orderResponse?.data || orderResponse;
 
   console.log("Duffel order created:", {
     orderId: orderData?.id,
-    bookingReference: pendingBooking?.bookingReference || pendingBooking?.booking_reference,
+    bookingReference: booking.bookingReference,
   });
 
-  const existingReferences = new Set(
-    Array.from(confirmedBookings.values())
-      .map((booking) => booking.bookingReference || booking.booking_reference)
-      .filter(Boolean)
-  );
-
-  const bookingReference = generateBookingReference(existingReferences);
-
-  const confirmedBooking = {
-    ...pendingBooking,
-    bookingReference,
-    booking_reference: bookingReference,
-    status: "confirmed",
-    confirmed_at: new Date().toISOString(),
-    stripe_payment_status: session.payment_status || null,
-    stripe_customer_email:
-      session.customer_details?.email || session.customer_email || null,
-    stripe_session_id: sessionId,
-    stripe_payment_intent: session.payment_intent || null,
-    duffel_order_id: orderData?.id || null,
-    duffel_order: orderData || null,
-  };
-
-  confirmedBookings.set(sessionId, confirmedBooking);
-  pendingBookings.delete(sessionId);
+  const confirmed = await confirmBooking({
+    sessionId,
+    stripePaymentIntent: session.payment_intent || null,
+    stripePaymentStatus: session.payment_status || null,
+    duffelOrderId: orderData?.id || null,
+    duffelOrder: orderData || null,
+  });
 
   return {
     alreadyConfirmed: false,
-    booking: confirmedBooking,
+    booking: confirmed,
   };
 }
 
@@ -206,14 +191,10 @@ async function handleStripeEvent(event) {
       const session = event.data.object;
       const sessionId = session.id;
 
-      if (pendingBookings.has(sessionId)) {
-        const pendingBooking = pendingBookings.get(sessionId);
+      const booking = await getBookingBySessionId(sessionId);
 
-        pendingBookings.set(sessionId, {
-          ...pendingBooking,
-          status: "expired",
-          expired_at: new Date().toISOString(),
-        });
+      if (booking && booking.status === "pending_payment") {
+        await markBookingExpired(sessionId);
       }
 
       return {

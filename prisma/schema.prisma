@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+enum BookingStatus {
+  pending_payment
+  confirmed
+  expired
+  failed
+  cancelled
+}
+
+model Booking {
+  id                            String        @id @default(cuid())
+  bookingReference              String        @unique
+  sessionId                     String?       @unique
+  stripeCheckoutSessionId       String?       @unique
+  stripePaymentIntent           String?
+  stripePaymentStatus           String?
+  customerEmail                 String
+  phoneNumber                   String
+  offerId                       String
+  status                        BookingStatus @default(pending_payment)
+  currency                      String        @default("sek")
+  amount                        Int
+  originalCurrency              String
+  originalAmount                Float
+  passengerCount                Int
+
+  flightAmountPerPersonSekMinor Int
+  serviceFeePerPersonSekMinor   Int
+  seatPriceSekMinor             Int           @default(0)
+  bagPriceSekMinor              Int           @default(0)
+
+  flightTotalSekMinor           Int
+  serviceFeeTotalSekMinor       Int
+  seatTotalSekMinor             Int           @default(0)
+  baggageTotalSekMinor          Int           @default(0)
+  totalSekMinor                 Int
+
+  eurToSekRate                  Float
+
+  seatSelection                 Boolean       @default(false)
+  checkedBags                   Int           @default(0)
+
+  offerSnapshot                 Json
+  duffelOrderId                 String?
+  duffelOrder                   Json?
+
+  createdAt                     DateTime      @default(now())
+  updatedAt                     DateTime      @updatedAt
+  confirmedAt                   DateTime?
+  expiredAt                     DateTime?
+
+  passengers                    Passenger[]
+
+  @@index([customerEmail])
+  @@index([bookingReference])
+  @@index([status])
+}
+
+model Passenger {
+  id         String  @id @default(cuid())
+  bookingId  String
+  type       String  @default("adult")
+  title      String?
+  gender     String?
+  givenName  String
+  familyName String
+  bornOn     String
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([familyName])
+}

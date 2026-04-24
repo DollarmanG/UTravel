@@ -183,3 +183,45 @@ p {
     padding: 0 16px;
   }
 }
+
+.utravelDatepicker {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18) !important;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.utravelDatepicker .react-datepicker__header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.utravelDatepicker .react-datepicker__current-month {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.utravelDatepicker .react-datepicker__day--selected,
+.utravelDatepicker .react-datepicker__day--keyboard-selected {
+  background: #2563eb !important;
+  color: white !important;
+  border-radius: 999px;
+}
+
+.utravelDatepicker .react-datepicker__day:hover {
+  border-radius: 999px;
+}
+
+.utravelDatepicker select {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-weight: 600;
+  color: #0f172a;
+  background: white;
+}
+
+.utravelDatepickerPopper {
+  z-index: 9999 !important;
+}

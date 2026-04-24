@@ -771,3 +771,22 @@
     white-space: normal;
   }
 }
+
+.heroInput :global(.react-datepicker-wrapper),
+.heroInput :global(.react-datepicker__input-container) {
+  width: 100%;
+}
+
+:global(.react-datepicker-wrapper) {
+  width: 100%;
+}
+
+:global(.react-datepicker__input-container) {
+  width: 100%;
+}
+
+.tripPriceSub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #64748b;
+}

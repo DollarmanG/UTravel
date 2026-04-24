@@ -56,6 +56,18 @@ export async function getBooking(sessionId) {
   return parseJsonResponse(res);
 }
 
+export async function findBooking(payload) {
+  const res = await fetch(`${API_BASE_URL}/bookings/find`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonResponse(res);
+}
+
 export async function getPlaceSuggestions(query) {
   const res = await fetch(
     `${API_BASE_URL}/places/suggestions?q=${encodeURIComponent(query)}`

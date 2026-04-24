@@ -1,5 +1,127 @@
 const PDFDocument = require("pdfkit");
-const { pendingBookings, confirmedBookings } = require("../db/store");
+const {
+  getBookingBySessionId: getBookingBySessionIdFromDb,
+  getBookingByReference,
+  findBookingByReferenceAndIdentifier,
+} = require("../services/booking.service");
+
+function mapBookingForFrontend(booking) {
+  return {
+    id: booking.id,
+    bookingReference: booking.bookingReference,
+    booking_reference: booking.bookingReference,
+    session_id: booking.sessionId,
+    stripe_checkout_session_id: booking.stripeCheckoutSessionId,
+
+    offer_id: booking.offerId,
+    offer_snapshot: booking.offerSnapshot,
+
+    passengers: booking.passengers.map((p) => ({
+      type: p.type,
+      title: p.title,
+      gender: p.gender,
+      given_name: p.givenName,
+      family_name: p.familyName,
+      born_on: p.bornOn,
+    })),
+
+    customer_email: booking.customerEmail,
+    phone_number: booking.phoneNumber,
+
+    amount: booking.amount,
+    currency: booking.currency,
+    status: booking.status,
+
+    original_currency: booking.originalCurrency,
+    original_amount: booking.originalAmount,
+    passenger_count: booking.passengerCount,
+
+    flight_amount_per_person_sek_minor: booking.flightAmountPerPersonSekMinor,
+    service_fee_per_person_sek_minor: booking.serviceFeePerPersonSekMinor,
+    seat_price_sek_minor: booking.seatPriceSekMinor,
+    bag_price_sek_minor: booking.bagPriceSekMinor,
+
+    flight_total_sek_minor: booking.flightTotalSekMinor,
+    service_fee_total_sek_minor: booking.serviceFeeTotalSekMinor,
+    seat_total_sek_minor: booking.seatTotalSekMinor,
+    baggage_total_sek_minor: booking.baggageTotalSekMinor,
+    total_sek_minor: booking.totalSekMinor,
+
+    eur_to_sek_rate: booking.eurToSekRate,
+
+    confirmed_at: booking.confirmedAt,
+    created_at: booking.createdAt,
+
+    duffel_order_id: booking.duffelOrderId,
+    duffel_order: booking.duffelOrder,
+  };
+}
+
+async function getBookingBySessionId(req, res) {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        error: "sessionId krävs.",
+      });
+    }
+
+    const booking = await getBookingBySessionIdFromDb(sessionId);
+
+    if (!booking) {
+      return res.status(404).json({
+        error: "Bokning hittades inte.",
+      });
+    }
+
+    return res.json({
+      status: booking.status,
+      booking: mapBookingForFrontend(booking),
+    });
+  } catch (error) {
+    console.error("getBookingBySessionId error:", error);
+
+    return res.status(500).json({
+      error: "Något gick fel vid hämtning av bokning.",
+    });
+  }
+}
+
+async function findBooking(req, res) {
+  try {
+    const { booking_reference, identifier } = req.body;
+
+    if (!booking_reference || !identifier) {
+      return res.status(400).json({
+        error: "Bokningsreferens och efternamn eller e-post krävs.",
+      });
+    }
+
+    const booking = await findBookingByReferenceAndIdentifier(
+      booking_reference,
+      identifier
+    );
+
+    if (!booking) {
+      return res.status(404).json({
+        error: "Ingen bokning hittades med dessa uppgifter.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      status: booking.status,
+      booking: mapBookingForFrontend(booking),
+    });
+  } catch (error) {
+    console.error("findBooking error:", error);
+
+    return res.status(500).json({
+      error: "Något gick fel när bokningen skulle hämtas.",
+    });
+  }
+}
 
 function formatCurrency(amount) {
   const value = Number(amount || 0);
@@ -26,61 +148,6 @@ function formatDateOnly(value) {
     month: "long",
     day: "numeric",
   });
-}
-
-function getBookingBySessionId(req, res) {
-  try {
-    const { sessionId } = req.params;
-
-    if (!sessionId) {
-      return res.status(400).json({
-        error: "sessionId krävs.",
-      });
-    }
-
-    if (confirmedBookings.has(sessionId)) {
-      const booking = confirmedBookings.get(sessionId);
-
-      return res.json({
-        status: "confirmed",
-        booking,
-      });
-    }
-
-    if (pendingBookings.has(sessionId)) {
-      const booking = pendingBookings.get(sessionId);
-
-      return res.json({
-        status: "pending",
-        booking,
-      });
-    }
-
-    return res.status(404).json({
-      error: "Bokning hittades inte.",
-    });
-  } catch (error) {
-    console.error("getBookingBySessionId error:", error);
-
-    return res.status(500).json({
-      error: "Något gick fel vid hämtning av bokning.",
-    });
-  }
-}
-
-function getConfirmedBookingByReference(reference) {
-  if (!reference) return null;
-
-  for (const [, booking] of confirmedBookings.entries()) {
-    if (
-      booking?.bookingReference === reference ||
-      booking?.booking_reference === reference
-    ) {
-      return booking;
-    }
-  }
-
-  return null;
 }
 
 function getPassengers(booking) {
@@ -218,17 +285,19 @@ function drawPaymentRow(doc, label, value, y, isTotal = false) {
     .text(value, rightX, y, { width: 90, align: "right" });
 }
 
-function downloadBookingPdf(req, res) {
+async function downloadBookingPdf(req, res) {
   try {
     const { reference } = req.params;
-    const booking = getConfirmedBookingByReference(reference);
+    const dbBooking = await getBookingByReference(reference);
 
-    if (!booking) {
+    if (!dbBooking) {
       return res.status(404).json({
         success: false,
         message: "Bokningen kunde inte hittas.",
       });
     }
+
+    const booking = mapBookingForFrontend(dbBooking);
 
     const bookingReference =
       booking?.bookingReference || booking?.booking_reference || reference;
@@ -240,19 +309,24 @@ function downloadBookingPdf(req, res) {
     const returnDate = getReturnDate(booking);
     const passengers = getPassengers(booking);
 
-    const totalAmount = booking?.amount != null ? Number(booking.amount) / 100 : 0;
+    const totalAmount =
+      booking?.amount != null ? Number(booking.amount) / 100 : 0;
+
     const flightAmount =
       booking?.flight_total_sek_minor != null
         ? Number(booking.flight_total_sek_minor) / 100
         : 0;
+
     const serviceFee =
       booking?.service_fee_total_sek_minor != null
         ? Number(booking.service_fee_total_sek_minor) / 100
         : 0;
+
     const seats =
       booking?.seat_total_sek_minor != null
         ? Number(booking.seat_total_sek_minor) / 100
         : 0;
+
     const bags =
       booking?.baggage_total_sek_minor != null
         ? Number(booking.baggage_total_sek_minor) / 100
@@ -270,10 +344,7 @@ function downloadBookingPdf(req, res) {
 
     doc.pipe(res);
 
-    // Bakgrund
     doc.rect(0, 0, 595, 842).fill("#F8FAFC");
-
-    // Header
     doc.rect(0, 0, 595, 170).fill("#0F172A");
 
     doc
@@ -294,12 +365,7 @@ function downloadBookingPdf(req, res) {
       .fontSize(11)
       .text("Tack för att du reser med oss. Här är din sammanfattning.", 50, 104);
 
-    // Bokningsbadge
-    doc
-      .save()
-      .roundedRect(390, 42, 155, 34, 17)
-      .fill("#1E293B")
-      .restore();
+    doc.save().roundedRect(390, 42, 155, 34, 17).fill("#1E293B").restore();
 
     doc
       .fillColor("#FFFFFF")
@@ -319,15 +385,19 @@ function downloadBookingPdf(req, res) {
         align: "center",
       });
 
-    // Hero summary box
-    doc
-      .save()
-      .roundedRect(50, 138, 495, 82, 18)
-      .fill("#FFFFFF")
-      .restore();
+    doc.save().roundedRect(50, 138, 495, 82, 18).fill("#FFFFFF").restore();
 
-    drawLabelValue(doc, "Status", "Bokning bekräftad", 72, 156, 120);
+    drawLabelValue(
+      doc,
+      "Status",
+      booking.status === "confirmed" ? "Bokning bekräftad" : "Inväntar bekräftelse",
+      72,
+      156,
+      120
+    );
+
     drawLabelValue(doc, "Resa", routeLabel, 212, 156, 170);
+
     drawLabelValue(
       doc,
       "Skapad",
@@ -337,16 +407,12 @@ function downloadBookingPdf(req, res) {
       120
     );
 
-    // Card 1: Resenär
     drawInfoCard(doc, 50, 248, 238, 168, "Resenär");
-
     drawLabelValue(doc, "Namn", passengerName, 68, 300, 180);
     drawLabelValue(doc, "E-post", booking?.customer_email || "-", 68, 344, 180);
     drawLabelValue(doc, "Telefon", booking?.phone_number || "-", 68, 388, 180);
 
-    // Card 2: Resa
     drawInfoCard(doc, 307, 248, 238, 168, "Resa");
-
     drawLabelValue(doc, "Rutt", route, 325, 300, 180);
     drawLabelValue(doc, "Utresa", formatDateOnly(departDate), 325, 344, 180);
     drawLabelValue(
@@ -358,9 +424,7 @@ function downloadBookingPdf(req, res) {
       180
     );
 
-    // Payment card
     drawInfoCard(doc, 50, 438, 495, 222, "Betalning");
-
     drawPaymentRow(doc, "Betalningsmetod", "Kort", 478);
     drawPaymentRow(doc, "Resenärer", String(passengers.length || 1), 504);
     drawPaymentRow(doc, "Flygbiljett", formatCurrency(flightAmount), 540);
@@ -393,7 +457,6 @@ function downloadBookingPdf(req, res) {
       true
     );
 
-    // Support footer card
     drawInfoCard(doc, 50, 690, 495, 108, "Behöver du hjälp?");
 
     doc
@@ -410,7 +473,6 @@ function downloadBookingPdf(req, res) {
     drawLabelValue(doc, "Telefon", "08-123 45 67", 410, 724, 100);
     drawLabelValue(doc, "E-post", "info@utravel.se", 410, 764, 100);
 
-    // Small footer
     doc
       .fillColor("#94A3B8")
       .font("Helvetica")
@@ -438,4 +500,5 @@ function downloadBookingPdf(req, res) {
 module.exports = {
   getBookingBySessionId,
   downloadBookingPdf,
+  findBooking,
 };
