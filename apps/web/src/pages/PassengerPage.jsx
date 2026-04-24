@@ -241,6 +241,7 @@ export default function PassengerPage() {
   const basePassengerCount = getPassengerCountFromState(state, offer);
 
   const [loading, setLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
 
   const [contact, setContact] = useState({
     email: "",
@@ -294,6 +295,7 @@ export default function PassengerPage() {
 
   async function handleCheckout(e) {
     e.preventDefault();
+    setCheckoutError("");
 
     const normalizedEmail = contact.email.trim();
     const normalizedConfirmEmail = contact.confirmEmail.trim();
@@ -392,7 +394,10 @@ export default function PassengerPage() {
 
       window.location.href = data.url;
     } catch (err) {
-      alert(err.message || "Något gick fel vid skickning till betalning.");
+      setCheckoutError(
+        err.message ||
+          "Priset eller tillgängligheten har ändrats. Gå tillbaka och sök igen."
+      );
     } finally {
       setLoading(false);
     }
@@ -829,6 +834,20 @@ export default function PassengerPage() {
                       och resevillkoren.
                     </label>
                   </div>
+
+                  {checkoutError && (
+                    <div className={styles.checkoutErrorBox}>
+                      <strong>Resan behöver uppdateras</strong>
+                      <p>{checkoutError}</p>
+                      <button
+                        type="button"
+                        className={styles.errorButton}
+                        onClick={() => navigate("/results", { state })}
+                      >
+                        Gå tillbaka och välj ny resa
+                      </button>
+                    </div>
+                  )}
 
                   <div className={styles.actionRow}>
                     <button

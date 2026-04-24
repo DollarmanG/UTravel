@@ -140,9 +140,12 @@ function getStatusLabel(status) {
   const value = String(status).toLowerCase();
 
   if (value === "confirmed") return "Bokning bekräftad";
+  if (value === "payment_received") return "Betalning mottagen";
+  if (value === "pending_payment") return "Inväntar betalning";
   if (value === "pending") return "Behandling pågår";
+  if (value === "confirmation_failed") return "Manuell kontroll krävs";
   if (value === "expired") return "Bokningen har löpt ut";
-  if (value.includes("failed")) return "Betalning misslyckades";
+  if (value.includes("failed")) return "Något gick fel";
 
   return status;
 }
@@ -158,7 +161,10 @@ export default function SuccessPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadBooking() {
+    let cancelled = false;
+    let timeoutId;
+
+    async function loadBooking(attempt = 0) {
       if (!sessionId) {
         setError("Vi kunde inte hitta någon bokningsreferens.");
         setLoading(false);
@@ -167,16 +173,49 @@ export default function SuccessPage() {
 
       try {
         const data = await getBooking(sessionId);
-        setBookingStatus(data?.status || "");
-        setBooking(data?.booking || null);
+
+        if (cancelled) return;
+
+        const nextStatus = data?.status || "";
+        const nextBooking = data?.booking || null;
+
+        setBookingStatus(nextStatus);
+        setBooking(nextBooking);
+        setError("");
+        setLoading(false);
+
+        const normalizedStatus = String(nextStatus || "").toLowerCase();
+
+        const shouldKeepPolling =
+          ["pending_payment", "payment_received", "pending"].includes(normalizedStatus) &&
+          attempt < 20;
+
+        if (shouldKeepPolling) {
+          timeoutId = setTimeout(() => {
+            loadBooking(attempt + 1);
+          }, 3000);
+        }
       } catch (err) {
+        if (cancelled) return;
+
+        if (attempt < 5) {
+          timeoutId = setTimeout(() => {
+            loadBooking(attempt + 1);
+          }, 3000);
+          return;
+        }
+
         setError(err.message || "Kunde inte hämta bokningen.");
-      } finally {
         setLoading(false);
       }
     }
 
     loadBooking();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [sessionId]);
 
   const trip = useMemo(() => extractTripSummary(booking || {}), [booking]);
@@ -276,13 +315,31 @@ export default function SuccessPage() {
               <h1 className={styles.heroTitle}>
                 {bookingStatus === "confirmed"
                   ? "Din bokning är bekräftad"
-                  : "Din bokning behandlas"}
+                  : bookingStatus === "confirmation_failed"
+                    ? "Vi kontrollerar din bokning"
+                    : "Din bokning behandlas"}
               </h1>
 
               <p className={styles.heroText}>
-                Tack för att du reser med oss.
-                <br />
-                Här ser du den senaste informationen om din bokning.
+                {bookingStatus === "confirmed" ? (
+                  <>
+                    Tack för att du reser med oss.
+                    <br />
+                    Din betalning och bokning är bekräftad.
+                  </>
+                ) : bookingStatus === "confirmation_failed" ? (
+                  <>
+                    Din betalning är mottagen.
+                    <br />
+                    Vi behöver kontrollera bokningen manuellt och kontaktar dig vid behov.
+                  </>
+                ) : (
+                  <>
+                    Din betalning behandlas.
+                    <br />
+                    Sidan uppdateras automatiskt när bokningen är bekräftad.
+                  </>
+                )}
               </p>
 
               <div className={styles.bookingNumber}>
@@ -432,12 +489,17 @@ export default function SuccessPage() {
                   <strong>
                     {bookingStatus === "confirmed"
                       ? "Betalningen är genomförd"
-                      : "Betalningen behandlas"}
+                      : bookingStatus === "confirmation_failed"
+                        ? "Betalningen är mottagen"
+                        : "Betalningen behandlas"}
                   </strong>
+
                   <p>
                     {bookingStatus === "confirmed"
-                      ? "Tack! Vi har tagit emot din betalning."
-                      : "Vi inväntar slutlig bekräftelse på din bokning."}
+                      ? "Tack! Vi har tagit emot din betalning och bekräftat bokningen."
+                      : bookingStatus === "confirmation_failed"
+                        ? "Betalningen gick igenom, men flygbokningen behöver kontrolleras manuellt."
+                        : "Vi inväntar slutlig bekräftelse på din bokning."}
                   </p>
                 </div>
               </div>

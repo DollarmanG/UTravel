@@ -278,10 +278,32 @@ async function createCheckoutSession(req, res) {
       },
     });
   } catch (error) {
-    console.error("checkout error:", error.response?.data || error.message);
+    const duffelError = error.response?.data || error.data || null;
+    const rawMessage =
+      duffelError?.errors?.[0]?.message ||
+      duffelError?.message ||
+      error.message ||
+      "";
+
+    console.error("checkout error:", duffelError || rawMessage);
+
+    const isOfferUnavailable =
+      rawMessage.toLowerCase().includes("select another offer") ||
+      rawMessage.toLowerCase().includes("latest availability") ||
+      rawMessage.toLowerCase().includes("offer") ||
+      error.response?.status === 422;
+
+    if (isOfferUnavailable) {
+      return res.status(409).json({
+        code: "OFFER_UNAVAILABLE",
+        error:
+          "Priset eller tillgängligheten har ändrats. Gå tillbaka och sök igen för att hämta aktuella biljetter.",
+      });
+    }
 
     return res.status(500).json({
-      error: error.response?.data || error.message,
+      code: "CHECKOUT_FAILED",
+      error: "Kunde inte starta betalningen just nu. Försök igen om en stund.",
     });
   }
 }

@@ -56,9 +56,7 @@ async function createPendingBooking(data) {
 
 async function attachStripeSessionToBooking(bookingId, sessionId) {
   return prisma.booking.update({
-    where: {
-      id: bookingId,
-    },
+    where: { id: bookingId },
     data: {
       sessionId,
       stripeCheckoutSessionId: sessionId,
@@ -120,6 +118,23 @@ async function findBookingByReferenceAndIdentifier(reference, identifier) {
   });
 }
 
+async function markBookingPaymentReceived(sessionId, stripePaymentIntent, stripePaymentStatus) {
+  const booking = await getBookingBySessionId(sessionId);
+  if (!booking) return null;
+
+  return prisma.booking.update({
+    where: { id: booking.id },
+    data: {
+      status: "payment_received",
+      stripePaymentIntent: stripePaymentIntent || null,
+      stripePaymentStatus: stripePaymentStatus || null,
+    },
+    include: {
+      passengers: true,
+    },
+  });
+}
+
 async function confirmBooking({
   sessionId,
   stripePaymentIntent,
@@ -127,10 +142,14 @@ async function confirmBooking({
   duffelOrderId,
   duffelOrder,
 }) {
+  const booking = await getBookingBySessionId(sessionId);
+
+  if (!booking) {
+    throw new Error(`Ingen booking hittades för session ${sessionId}.`);
+  }
+
   return prisma.booking.update({
-    where: {
-      sessionId,
-    },
+    where: { id: booking.id },
     data: {
       status: "confirmed",
       stripePaymentIntent: stripePaymentIntent || null,
@@ -145,11 +164,28 @@ async function confirmBooking({
   });
 }
 
-async function markBookingExpired(sessionId) {
+async function markBookingConfirmationFailed(sessionId, reason) {
+  const booking = await getBookingBySessionId(sessionId);
+  if (!booking) return null;
+
   return prisma.booking.update({
-    where: {
-      sessionId,
+    where: { id: booking.id },
+    data: {
+      status: "confirmation_failed",
+      confirmationError: reason || "Kunde inte bekräfta bokningen.",
     },
+    include: {
+      passengers: true,
+    },
+  });
+}
+
+async function markBookingExpired(sessionId) {
+  const booking = await getBookingBySessionId(sessionId);
+  if (!booking) return null;
+
+  return prisma.booking.update({
+    where: { id: booking.id },
     data: {
       status: "expired",
       expiredAt: new Date(),
@@ -166,6 +202,8 @@ module.exports = {
   getBookingBySessionId,
   getBookingByReference,
   findBookingByReferenceAndIdentifier,
+  markBookingPaymentReceived,
   confirmBooking,
+  markBookingConfirmationFailed,
   markBookingExpired,
 };

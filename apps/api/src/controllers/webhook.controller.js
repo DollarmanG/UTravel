@@ -2,7 +2,9 @@ const { constructWebhookEvent } = require("../services/stripe.service");
 const { createOrder } = require("../services/duffel.service");
 const {
   getBookingBySessionId,
+  markBookingPaymentReceived,
   confirmBooking,
+  markBookingConfirmationFailed,
   markBookingExpired,
 } = require("../services/booking.service");
 
@@ -60,25 +62,13 @@ function mapPassengerForDuffel(passenger, booking, index) {
 }
 
 function buildDuffelOrderPayload(booking) {
-  if (!booking) {
-    throw new Error("Booking saknas.");
-  }
-
-  if (!booking.offerId) {
-    throw new Error("offer_id saknas i booking.");
-  }
-
+  if (!booking) throw new Error("Booking saknas.");
+  if (!booking.offerId) throw new Error("offer_id saknas i booking.");
   if (!Array.isArray(booking.passengers) || booking.passengers.length === 0) {
     throw new Error("passengers saknas i booking.");
   }
-
-  if (!booking.customerEmail) {
-    throw new Error("customer_email saknas i booking.");
-  }
-
-  if (!booking.phoneNumber) {
-    throw new Error("phone_number saknas i booking.");
-  }
+  if (!booking.customerEmail) throw new Error("customer_email saknas i booking.");
+  if (!booking.phoneNumber) throw new Error("phone_number saknas i booking.");
 
   const originalAmount = Number(booking.originalAmount || 0);
   const originalCurrency = String(booking.originalCurrency || "").toUpperCase();
@@ -103,9 +93,8 @@ function buildDuffelOrderPayload(booking) {
     ],
     passengers,
     metadata: {
-      source: "utravel_test_checkout",
-      stripe_session_id:
-        booking.sessionId || booking.stripeCheckoutSessionId || "",
+      source: "utravel_checkout",
+      stripe_session_id: booking.sessionId || booking.stripeCheckoutSessionId || "",
       booking_reference: booking.bookingReference || "",
       customer_email: booking.customerEmail,
     },
@@ -132,27 +121,39 @@ async function confirmBookingFromCheckoutSession(session) {
     };
   }
 
-  const orderPayload = buildDuffelOrderPayload(booking);
-  const orderResponse = await createOrder(orderPayload);
-  const orderData = orderResponse?.data || orderResponse;
-
-  console.log("Duffel order created:", {
-    orderId: orderData?.id,
-    bookingReference: booking.bookingReference,
-  });
-
-  const confirmed = await confirmBooking({
+  await markBookingPaymentReceived(
     sessionId,
-    stripePaymentIntent: session.payment_intent || null,
-    stripePaymentStatus: session.payment_status || null,
-    duffelOrderId: orderData?.id || null,
-    duffelOrder: orderData || null,
-  });
+    session.payment_intent || null,
+    session.payment_status || null
+  );
 
-  return {
-    alreadyConfirmed: false,
-    booking: confirmed,
-  };
+  try {
+    const orderPayload = buildDuffelOrderPayload(booking);
+    const orderResponse = await createOrder(orderPayload);
+    const orderData = orderResponse?.data || orderResponse;
+
+    console.log("Duffel order created:", {
+      orderId: orderData?.id,
+      bookingReference: booking.bookingReference,
+    });
+
+    const confirmed = await confirmBooking({
+      sessionId,
+      stripePaymentIntent: session.payment_intent || null,
+      stripePaymentStatus: session.payment_status || null,
+      duffelOrderId: orderData?.id || null,
+      duffelOrder: orderData || null,
+    });
+
+    return {
+      alreadyConfirmed: false,
+      booking: confirmed,
+    };
+  } catch (error) {
+    await markBookingConfirmationFailed(sessionId, error.message);
+
+    throw error;
+  }
 }
 
 async function handleStripeEvent(event) {
@@ -163,7 +164,7 @@ async function handleStripeEvent(event) {
       if (session.mode === "payment" && session.payment_status !== "paid") {
         return {
           ignored: true,
-          reason: `Session ${session.id} är completed men payment_status=${session.payment_status}`,
+          reason: `Session ${session.id} completed men payment_status=${session.payment_status}`,
         };
       }
 
@@ -256,7 +257,7 @@ async function stripeWebhook(req, res) {
       eventId: event.id,
     });
 
-    return res.status(error.status || 500).json({
+    return res.status(500).json({
       error: error.message || "Webhook processing failed.",
       requestId: error.requestId || null,
       details: error.data || null,

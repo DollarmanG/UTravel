@@ -3,78 +3,81 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 enum BookingStatus {
   pending_payment
+  payment_received
+  pending
   confirmed
+  confirmation_failed
   expired
   failed
   cancelled
 }
 
 model Booking {
-  id                            String        @id @default(cuid())
-  bookingReference              String        @unique
-  sessionId                     String?       @unique
-  stripeCheckoutSessionId       String?       @unique
-  stripePaymentIntent           String?
-  stripePaymentStatus           String?
-  customerEmail                 String
-  phoneNumber                   String
-  offerId                       String
-  status                        BookingStatus @default(pending_payment)
-  currency                      String        @default("sek")
-  amount                        Int
-  originalCurrency              String
-  originalAmount                Float
-  passengerCount                Int
+  id                      String        @id @default(cuid())
+  bookingReference        String        @unique
+  sessionId               String?       @unique
+  stripeCheckoutSessionId String?       @unique
+  stripePaymentIntent     String?
+  stripePaymentStatus     String?
+
+  customerEmail           String
+  phoneNumber             String
+  offerId                 String
+
+  status                  BookingStatus @default(pending_payment)
+  confirmationError       String?
+
+  currency                String        @default("sek")
+  amount                  Int
+
+  originalCurrency        String
+  originalAmount          Float
+  passengerCount          Int
 
   flightAmountPerPersonSekMinor Int
   serviceFeePerPersonSekMinor   Int
-  seatPriceSekMinor             Int           @default(0)
-  bagPriceSekMinor              Int           @default(0)
+  seatPriceSekMinor             Int     @default(0)
+  bagPriceSekMinor              Int     @default(0)
 
-  flightTotalSekMinor           Int
-  serviceFeeTotalSekMinor       Int
-  seatTotalSekMinor             Int           @default(0)
-  baggageTotalSekMinor          Int           @default(0)
-  totalSekMinor                 Int
+  flightTotalSekMinor     Int
+  serviceFeeTotalSekMinor Int
+  seatTotalSekMinor       Int          @default(0)
+  baggageTotalSekMinor    Int          @default(0)
+  totalSekMinor           Int
 
-  eurToSekRate                  Float
+  eurToSekRate            Float
 
-  seatSelection                 Boolean       @default(false)
-  checkedBags                   Int           @default(0)
+  seatSelection           Boolean      @default(false)
+  checkedBags             Int          @default(0)
 
-  offerSnapshot                 Json
-  duffelOrderId                 String?
-  duffelOrder                   Json?
+  offerSnapshot           Json
 
-  createdAt                     DateTime      @default(now())
-  updatedAt                     DateTime      @updatedAt
-  confirmedAt                   DateTime?
-  expiredAt                     DateTime?
+  duffelOrderId           String?
+  duffelOrder             Json?
 
-  passengers                    Passenger[]
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  confirmedAt             DateTime?
+  expiredAt               DateTime?
 
-  @@index([customerEmail])
-  @@index([bookingReference])
-  @@index([status])
+  passengers              Passenger[]
 }
 
 model Passenger {
-  id         String  @id @default(cuid())
-  bookingId  String
-  type       String  @default("adult")
-  title      String?
-  gender     String?
-  givenName  String
-  familyName String
-  bornOn     String
+  id          String   @id @default(cuid())
 
-  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  @@index([bookingId])
-  @@index([familyName])
+  type        String   @default("adult")
+  title       String?
+  gender      String?
+  givenName   String
+  familyName  String
+  bornOn      String
 }

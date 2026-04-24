@@ -701,3 +701,34 @@
 :global(.react-datepicker__input-container) {
   width: 100%;
 }
+
+.checkoutErrorBox {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #7c2d12;
+}
+
+.checkoutErrorBox strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.checkoutErrorBox p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.errorButton {
+  border: 0;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+}
