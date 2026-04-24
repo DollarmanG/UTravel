@@ -16,41 +16,6 @@
   gap: 24px;
 }
 
-.logo {
-  position: relative;
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-  padding-bottom: 4px;
-}
-
-.logoText {
-  color: #f8fafc;
-  font-family: var(--font-heading);
-  font-size: 2.05rem;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.logoAccent {
-  position: absolute;
-  left: 60px;
-  bottom: 0;
-  width: 92px;
-  height: 26px;
-  border-bottom: 2px solid #cfa64a;
-  border-radius: 0 0 90px 90px;
-  pointer-events: none;
-}
-
-.logoMark {
-  color: #d8a84b;
-  font-size: 0.92rem;
-  line-height: 1;
-  transform: translateY(-10px);
-}
-
 .actions {
   display: flex;
   align-items: center;
@@ -78,14 +43,5 @@
   .inner {
     padding: 0 16px;
     min-height: 68px;
-  }
-
-  .logoText {
-    font-size: 1.85rem;
-  }
-
-  .logoAccent {
-    left: 54px;
-    width: 82px;
   }
 }

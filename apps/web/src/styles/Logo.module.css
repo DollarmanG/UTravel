@@ -1,0 +1,28 @@
+.logo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  text-decoration: none;
+  line-height: 1;
+  gap: 2px;
+}
+
+.logoText {
+  display: block;
+  color: #f8fafc;
+  font-family: var(--font-heading);
+  font-size: 2.05rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.logoPlaneImage {
+  width: 64px;
+  height: 54px;
+  object-fit: contain;
+  display: block;
+  transform: translateY(-6px);
+  margin-right: -15px;
+}

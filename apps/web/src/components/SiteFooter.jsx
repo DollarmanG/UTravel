@@ -1,4 +1,5 @@
 import styles from "../styles/SiteFooter.module.css";
+import Logo from "./Logo";
 
 export default function SiteFooter() {
   return (
@@ -6,24 +7,30 @@ export default function SiteFooter() {
       <div className={styles.inner}>
         <div className={styles.top}>
           <div className={styles.brandColumn}>
-            <div className={styles.logoWrap}>
-              <span className={styles.logoText}>UTravel</span>
-              <span className={styles.logoAccent} />
-              <span className={styles.logoMark}>✦</span>
-            </div>
+            <div className={styles.brandBlock}>
+              <Logo
+                className={styles.footerLogo}
+                textClassName={styles.footerLogoText}
+                planeClassName={styles.footerLogoPlane}
+              />
 
-            <p className={styles.brandText}>
-              Din partner för minnesvärda resor sedan 2007.
-            </p>
+              <p className={styles.brandText}>
+                Din partner för minnesvärda resor sedan 2025.
+              </p>
 
-            <div className={styles.socials}>
-              <a href="#" aria-label="Instagram" className={styles.socialLink}>
-                <span className={styles.socialFallback}>ig</span>
-              </a>
+              {/*
+                Sociala medier - sparas för framtida användning
 
-              <a href="#" aria-label="Facebook" className={styles.socialLink}>
-                <span className={styles.socialFallback}>f</span>
-              </a>
+                <div className={styles.socials}>
+                  <a href="#" aria-label="Instagram" className={styles.socialLink}>
+                    <span className={styles.socialFallback}>ig</span>
+                  </a>
+
+                  <a href="#" aria-label="Facebook" className={styles.socialLink}>
+                    <span className={styles.socialFallback}>f</span>
+                  </a>
+                </div>
+              */}
             </div>
           </div>
 
@@ -65,14 +72,8 @@ export default function SiteFooter() {
 
         <div className={styles.bottom}>
           <span className={styles.copy}>
-            © 2024 UTravel AB. Alla rättigheter förbehållna.
+            © 2025 Ya Ra AB All rights reserved
           </span>
-
-          <div className={styles.bottomLinks}>
-            <a href="#" className={styles.bottomLink}>Integritetspolicy</a>
-            <a href="#" className={styles.bottomLink}>Cookies</a>
-            <a href="#" className={styles.bottomLink}>Webbplatskarta</a>
-          </div>
         </div>
       </div>
     </footer>
