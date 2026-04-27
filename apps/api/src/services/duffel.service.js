@@ -2,7 +2,7 @@ const axios = require("axios");
 
 const duffel = axios.create({
   baseURL: "https://api.duffel.com",
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     Authorization: `Bearer ${process.env.DUFFEL_API_TOKEN}`,
     "Duffel-Version": process.env.DUFFEL_API_VERSION || "v2",

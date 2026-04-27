@@ -1,5 +1,20 @@
 const prisma = require("../lib/prisma");
 
+const OFFER_PENDING_HOLD_MINUTES = 20;
+
+function getRecentPendingCutoff() {
+  return new Date(Date.now() - OFFER_PENDING_HOLD_MINUTES * 60 * 1000);
+}
+
+function bookingHasCreatedOrder(booking) {
+  return Boolean(
+    booking?.status === "confirmed" ||
+      booking?.duffelOrderId ||
+      booking?.confirmedAt ||
+      booking?.duffelOrder
+  );
+}
+
 async function createPendingBooking(data) {
   return prisma.booking.create({
     data: {
@@ -118,9 +133,68 @@ async function findBookingByReferenceAndIdentifier(reference, identifier) {
   });
 }
 
-async function markBookingPaymentReceived(sessionId, stripePaymentIntent, stripePaymentStatus) {
+/**
+ * Stoppar återanvändning av exakt samma Duffel offerId.
+ *
+ * Viktigt:
+ * Detta blockerar inte samma flygavgång.
+ * Det blockerar bara samma unika offerId från samma sökning.
+ *
+ * En annan kund kan fortfarande boka samma flyg,
+ * men då måste kunden göra en ny sökning och få ett nytt Duffel offerId.
+ */
+async function findBlockingBookingByOfferId(offerId) {
+  if (!offerId) return null;
+
+  return prisma.booking.findFirst({
+    where: {
+      offerId,
+      OR: [
+        {
+          status: {
+            in: ["payment_received", "confirmed"],
+          },
+        },
+        {
+          stripePaymentStatus: "paid",
+        },
+        {
+          duffelOrderId: {
+            not: null,
+          },
+        },
+        {
+          confirmedAt: {
+            not: null,
+          },
+        },
+      ],
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      passengers: true,
+    },
+  });
+}
+
+async function markBookingPaymentReceived(
+  sessionId,
+  stripePaymentIntent,
+  stripePaymentStatus
+) {
   const booking = await getBookingBySessionId(sessionId);
   if (!booking) return null;
+
+  /**
+   * Viktigt:
+   * Om webhooken kommer igen efter att bokningen redan är confirmed
+   * får vi inte skriva tillbaka status till payment_received.
+   */
+  if (bookingHasCreatedOrder(booking)) {
+    return booking;
+  }
 
   return prisma.booking.update({
     where: { id: booking.id },
@@ -157,6 +231,7 @@ async function confirmBooking({
       duffelOrderId: duffelOrderId || null,
       duffelOrder: duffelOrder || null,
       confirmedAt: new Date(),
+      confirmationError: null,
     },
     include: {
       passengers: true,
@@ -167,6 +242,15 @@ async function confirmBooking({
 async function markBookingConfirmationFailed(sessionId, reason) {
   const booking = await getBookingBySessionId(sessionId);
   if (!booking) return null;
+
+  /**
+   * Viktigt:
+   * Skriv aldrig över en redan lyckad Duffel-order till confirmation_failed.
+   * Det var en av orsakerna till "Manuell kontroll krävs" trots att order fanns.
+   */
+  if (bookingHasCreatedOrder(booking)) {
+    return booking;
+  }
 
   return prisma.booking.update({
     where: { id: booking.id },
@@ -183,6 +267,10 @@ async function markBookingConfirmationFailed(sessionId, reason) {
 async function markBookingExpired(sessionId) {
   const booking = await getBookingBySessionId(sessionId);
   if (!booking) return null;
+
+  if (bookingHasCreatedOrder(booking)) {
+    return booking;
+  }
 
   return prisma.booking.update({
     where: { id: booking.id },
@@ -202,6 +290,7 @@ module.exports = {
   getBookingBySessionId,
   getBookingByReference,
   findBookingByReferenceAndIdentifier,
+  findBlockingBookingByOfferId,
   markBookingPaymentReceived,
   confirmBooking,
   markBookingConfirmationFailed,

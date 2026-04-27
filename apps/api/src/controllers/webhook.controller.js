@@ -64,11 +64,18 @@ function mapPassengerForDuffel(passenger, booking, index) {
 function buildDuffelOrderPayload(booking) {
   if (!booking) throw new Error("Booking saknas.");
   if (!booking.offerId) throw new Error("offer_id saknas i booking.");
+
   if (!Array.isArray(booking.passengers) || booking.passengers.length === 0) {
     throw new Error("passengers saknas i booking.");
   }
-  if (!booking.customerEmail) throw new Error("customer_email saknas i booking.");
-  if (!booking.phoneNumber) throw new Error("phone_number saknas i booking.");
+
+  if (!booking.customerEmail) {
+    throw new Error("customer_email saknas i booking.");
+  }
+
+  if (!booking.phoneNumber) {
+    throw new Error("phone_number saknas i booking.");
+  }
 
   const originalAmount = Number(booking.originalAmount || 0);
   const originalCurrency = String(booking.originalCurrency || "").toUpperCase();
@@ -94,11 +101,30 @@ function buildDuffelOrderPayload(booking) {
     passengers,
     metadata: {
       source: "utravel_checkout",
-      stripe_session_id: booking.sessionId || booking.stripeCheckoutSessionId || "",
+      stripe_session_id:
+        booking.sessionId || booking.stripeCheckoutSessionId || "",
       booking_reference: booking.bookingReference || "",
       customer_email: booking.customerEmail,
     },
   };
+}
+
+function hasDuffelOrder(booking) {
+  return Boolean(
+    booking?.duffelOrder ||
+      booking?.duffelOrderId ||
+      booking?.confirmedAt ||
+      booking?.status === "confirmed"
+  );
+}
+
+function isAlreadyBookedOfferError(error) {
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    message.includes("selected_offers") &&
+    message.includes("already been booked")
+  );
 }
 
 async function confirmBookingFromCheckoutSession(session) {
@@ -114,7 +140,18 @@ async function confirmBookingFromCheckoutSession(session) {
     throw new Error(`Ingen booking hittades för session ${sessionId}.`);
   }
 
-  if (booking.status === "confirmed") {
+  /**
+   * Viktigt:
+   * Stripe kan skicka samma webhook flera gånger.
+   * Då får vi absolut inte skapa en ny Duffel-order igen.
+   */
+  if (hasDuffelOrder(booking)) {
+    console.log("Booking already has Duffel order / confirmed, skipping:", {
+      bookingReference: booking.bookingReference,
+      sessionId,
+      status: booking.status,
+    });
+
     return {
       alreadyConfirmed: true,
       booking,
@@ -127,22 +164,73 @@ async function confirmBookingFromCheckoutSession(session) {
     session.payment_status || null
   );
 
-  try {
-    const orderPayload = buildDuffelOrderPayload(booking);
-    const orderResponse = await createOrder(orderPayload);
-    const orderData = orderResponse?.data || orderResponse;
+  /**
+   * Hämta bokningen igen efter payment update.
+   * Detta minskar risken att vi jobbar med gammal status/data.
+   */
+  const freshBooking = await getBookingBySessionId(sessionId);
 
-    console.log("Duffel order created:", {
-      orderId: orderData?.id,
-      bookingReference: booking.bookingReference,
+  if (!freshBooking) {
+    throw new Error(`Booking försvann efter payment update: ${sessionId}.`);
+  }
+
+  if (hasDuffelOrder(freshBooking)) {
+    console.log("Booking became confirmed during payment update, skipping:", {
+      bookingReference: freshBooking.bookingReference,
+      sessionId,
+      status: freshBooking.status,
     });
 
+    return {
+      alreadyConfirmed: true,
+      booking: freshBooking,
+    };
+  }
+
+  let orderData = null;
+
+  try {
+    const orderPayload = buildDuffelOrderPayload(freshBooking);
+    const orderResponse = await createOrder(orderPayload);
+    orderData = orderResponse?.data || orderResponse;
+
+    if (!orderData?.id) {
+      throw new Error("Duffel order skapades men saknar order id.");
+    }
+
+    console.log("Duffel order created:", {
+      orderId: orderData.id,
+      bookingReference: freshBooking.bookingReference,
+    });
+  } catch (error) {
+    /**
+     * Detta är det vanliga felet när man återanvänder samma Duffel offer.
+     * Det ska bli confirmation_failed för denna booking.
+     */
+    if (isAlreadyBookedOfferError(error)) {
+      await markBookingConfirmationFailed(
+        sessionId,
+        "Duffel offer har redan bokats. Gör en ny flygsökning och välj ett nytt offer."
+      );
+    } else {
+      await markBookingConfirmationFailed(sessionId, error.message);
+    }
+
+    throw error;
+  }
+
+  /**
+   * Viktigt:
+   * När Duffel-order väl är skapad får vi inte hamna i confirmation_failed
+   * bara för att en DB-update eller liknande strular efteråt.
+   */
+  try {
     const confirmed = await confirmBooking({
       sessionId,
       stripePaymentIntent: session.payment_intent || null,
       stripePaymentStatus: session.payment_status || null,
-      duffelOrderId: orderData?.id || null,
-      duffelOrder: orderData || null,
+      duffelOrderId: orderData.id,
+      duffelOrder: orderData,
     });
 
     return {
@@ -150,8 +238,18 @@ async function confirmBookingFromCheckoutSession(session) {
       booking: confirmed,
     };
   } catch (error) {
-    await markBookingConfirmationFailed(sessionId, error.message);
+    console.error("Duffel order exists but confirmBooking failed:", {
+      message: error.message,
+      sessionId,
+      orderId: orderData.id,
+      bookingReference: freshBooking.bookingReference,
+    });
 
+    /**
+     * Kasta felet så ni ser det i backend-loggen,
+     * men skriv INTE över till confirmation_failed här.
+     * Annars kan en faktiskt skapad Duffel-order visas som manuell kontroll.
+     */
     throw error;
   }
 }

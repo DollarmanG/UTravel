@@ -1,13 +1,25 @@
 import styles from "../styles/OfferCard.module.css";
 
 function formatDateTime(value) {
-  if (!value || typeof value !== "string") return { time: "-", date: "-" };
+  if (!value || typeof value !== "string") {
+    return { time: "-", date: "-", shortDate: "-" };
+  }
 
   const [datePart, timePart] = value.split("T");
+
+  let shortDate = "-";
+
+  if (datePart) {
+    shortDate = new Date(datePart).toLocaleDateString("sv-SE", {
+      day: "numeric",
+      month: "short",
+    });
+  }
 
   return {
     time: timePart ? timePart.slice(0, 5) : "-",
     date: datePart || "-",
+    shortDate,
   };
 }
 
@@ -32,7 +44,7 @@ function formatSek(amount) {
 }
 
 function getJourneyData(slice) {
-  const segments = slice?.segments || [];
+  const segments = Array.isArray(slice?.segments) ? slice.segments : [];
   const firstSegment = segments[0];
   const lastSegment = segments[segments.length - 1];
 
@@ -46,8 +58,18 @@ function getJourneyData(slice) {
   };
 }
 
+function TimeBlock({ time, code, date }) {
+  return (
+    <div className={styles.timeBlock}>
+      <div className={styles.time}>{time}</div>
+      <div className={styles.code}>{code}</div>
+      <div className={styles.dateHint}>{date}</div>
+    </div>
+  );
+}
+
 export default function OfferCard({ offer, onSelect, variant = "default" }) {
-  const slices = offer?.slices || [];
+  const slices = Array.isArray(offer?.slices) ? offer.slices : [];
   const outbound = getJourneyData(slices[0]);
   const inbound = slices[1] ? getJourneyData(slices[1]) : null;
 
@@ -96,7 +118,7 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
             <div>
               <div className={styles.airlineName}>{airlineName}</div>
               <div className={styles.airlineMeta}>
-                {outbound.stops === 0 ? "Direktflyg" : `${outbound.stops} stopp`}
+                {outbound.stops === 0 ? "Direktflyg" : `${outbound.stops} stopp`} · lokal tid
               </div>
             </div>
           </div>
@@ -105,10 +127,11 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
             <div className={styles.journeyRow}>
               <div className={styles.journeyLabel}>Utresa</div>
 
-              <div className={styles.timeBlock}>
-                <div className={styles.time}>{outbound.departure.time}</div>
-                <div className={styles.code}>{outbound.originCode}</div>
-              </div>
+              <TimeBlock
+                time={outbound.departure.time}
+                code={outbound.originCode}
+                date={outbound.departure.shortDate}
+              />
 
               <div className={styles.routeBlock}>
                 <div className={styles.routeDuration}>{outbound.duration}</div>
@@ -122,20 +145,22 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
                 </div>
               </div>
 
-              <div className={styles.timeBlock}>
-                <div className={styles.time}>{outbound.arrival.time}</div>
-                <div className={styles.code}>{outbound.destinationCode}</div>
-              </div>
+              <TimeBlock
+                time={outbound.arrival.time}
+                code={outbound.destinationCode}
+                date={outbound.arrival.shortDate}
+              />
             </div>
 
             {inbound ? (
               <div className={styles.journeyRow}>
                 <div className={styles.journeyLabel}>Hemresa</div>
 
-                <div className={styles.timeBlock}>
-                  <div className={styles.time}>{inbound.departure.time}</div>
-                  <div className={styles.code}>{inbound.originCode}</div>
-                </div>
+                <TimeBlock
+                  time={inbound.departure.time}
+                  code={inbound.originCode}
+                  date={inbound.departure.shortDate}
+                />
 
                 <div className={styles.routeBlock}>
                   <div className={styles.routeDuration}>{inbound.duration}</div>
@@ -149,10 +174,11 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
                   </div>
                 </div>
 
-                <div className={styles.timeBlock}>
-                  <div className={styles.time}>{inbound.arrival.time}</div>
-                  <div className={styles.code}>{inbound.destinationCode}</div>
-                </div>
+                <TimeBlock
+                  time={inbound.arrival.time}
+                  code={inbound.destinationCode}
+                  date={inbound.arrival.shortDate}
+                />
               </div>
             ) : null}
           </div>
@@ -163,6 +189,7 @@ export default function OfferCard({ offer, onSelect, variant = "default" }) {
             <span className={styles.priceFrom}>fr.</span>
             <span className={styles.priceValue}>{formatSek(totalAmountSek)}</span>
           </div>
+
           <div className={styles.priceSub}>per person</div>
 
           <button

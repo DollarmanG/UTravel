@@ -567,6 +567,8 @@ export default function HomePage() {
       navigate("/results", {
         state: {
           offers: data.offers || [],
+          meta: data.meta || null,
+          searchMeta: data.meta || null,
           search: form,
         },
       });
@@ -595,6 +597,8 @@ export default function HomePage() {
       navigate("/results", {
         state: {
           offers: data.offers || [],
+          meta: data.meta || null,
+          searchMeta: data.meta || null,
           search: form,
         },
       });
@@ -818,22 +822,23 @@ export default function HomePage() {
                     <div className={styles.heroFieldIcon}>
                       <Calendar size={18} />
                     </div>
+
                     <div className={styles.heroFieldBody}>
                       <span className={styles.heroFieldLabel}>Avresa</span>
-                        <AppDatePicker
+                      <AppDatePicker
                         value={departDate}
                         onChange={(value) => {
-                            setDepartDate(value);
-                            setError("");
+                          setDepartDate(value);
+                          setError("");
 
-                            if (returnDate && value && returnDate < value) {
+                          if (returnDate && value && returnDate < value) {
                             setReturnDate("");
-                            }
+                          }
                         }}
                         placeholder="Välj avresedatum"
                         minDate={new Date()}
                         className={styles.heroInput}
-                        />
+                      />
                     </div>
                   </div>
 
@@ -845,18 +850,21 @@ export default function HomePage() {
                         <div className={styles.heroFieldIcon}>
                           <Calendar size={18} />
                         </div>
+
                         <div className={styles.heroFieldBody}>
-                          <span className={styles.heroFieldLabel}>Hemresa</span>
-                            <AppDatePicker
+                          <span className={styles.heroFieldLabel}>
+                            Hemresa
+                          </span>
+                          <AppDatePicker
                             value={returnDate}
                             onChange={(value) => {
-                                setReturnDate(value);
-                                setError("");
+                              setReturnDate(value);
+                              setError("");
                             }}
                             placeholder="Välj hemresedatum"
                             minDate={parseDateString(departDate) || new Date()}
                             className={styles.heroInput}
-                            />
+                          />
                         </div>
                       </div>
                     </>
@@ -876,6 +884,7 @@ export default function HomePage() {
                       <div className={styles.heroFieldIcon}>
                         <Users size={18} />
                       </div>
+
                       <div className={styles.heroFieldBody}>
                         <span className={styles.heroFieldLabel}>
                           Resenärer
@@ -892,6 +901,7 @@ export default function HomePage() {
                           <div>
                             <div className={styles.popoverTitle}>Vuxna</div>
                           </div>
+
                           <select
                             value={adults}
                             onChange={(e) => setAdults(Number(e.target.value))}
@@ -915,6 +925,7 @@ export default function HomePage() {
                               Endast 0–2 år
                             </div>
                           </div>
+
                           <select
                             value={children}
                             onChange={(e) =>
@@ -998,15 +1009,15 @@ export default function HomePage() {
                         </span>
                       </div>
 
-                        <p className={styles.tripPrice}>
+                      <p className={styles.tripPrice}>
                         {featuredLoading === trip.title
-                            ? "Söker..."
-                            : featuredPrices[trip.title] || "Hämtar pris..."}
-                        </p>
+                          ? "Söker..."
+                          : featuredPrices[trip.title] || "Hämtar pris..."}
+                      </p>
 
-                        <p className={styles.tripPriceSub}>
+                      <p className={styles.tripPriceSub}>
                         per person • baserat på {trip.adults} vuxna
-                        </p>
+                      </p>
                     </div>
                   </button>
                 );
@@ -1063,6 +1074,7 @@ export default function HomePage() {
                   <div className={styles.reviewAvatar}>
                     {currentReview.name.charAt(0)}
                   </div>
+
                   <div>
                     <div className={styles.reviewName}>
                       {currentReview.name}

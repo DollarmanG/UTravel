@@ -1,9 +1,13 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const { getOffer } = require("../services/duffel.service");
+const {
+  getOffer,
+  assertOfferBookable,
+} = require("../services/duffel.service");
 const { generateBookingReference } = require("../utils/bookingReference");
 const {
   createPendingBooking,
   attachStripeSessionToBooking,
+  findBlockingBookingByOfferId,
 } = require("../services/booking.service");
 
 const EUR_TO_SEK = Number(process.env.EUR_TO_SEK || 11.5);
@@ -33,7 +37,7 @@ function convertOfferToSekPerPerson(offer) {
     };
   }
 
-  throw new Error(`Valutan ${originalCurrency} stöds inte ännu`);
+  throw new Error(`Valutan ${originalCurrency || "okänd"} stöds inte ännu`);
 }
 
 function buildCheckoutLineItems({
@@ -99,6 +103,85 @@ function buildCheckoutLineItems({
   return items;
 }
 
+function validatePassengers(passengers) {
+  if (!Array.isArray(passengers) || passengers.length === 0) {
+    return "Minst en passagerare krävs.";
+  }
+
+  for (let i = 0; i < passengers.length; i += 1) {
+    const passenger = passengers[i];
+
+    if (
+      !passenger.given_name ||
+      !passenger.family_name ||
+      !passenger.born_on
+    ) {
+      return `Passagerare ${i + 1} saknar förnamn, efternamn eller födelsedatum.`;
+    }
+  }
+
+  return null;
+}
+
+function isOfferFromDuffelAirways(offer) {
+  const ownerName = String(offer?.owner?.name || "").toLowerCase();
+  const ownerIata = String(offer?.owner?.iata_code || "").toLowerCase();
+
+  return ownerName.includes("duffel") || ownerIata === "zz";
+}
+
+function hasValidSlicesAndSegments(offer) {
+  const slices = Array.isArray(offer?.slices) ? offer.slices : [];
+
+  if (slices.length === 0) return false;
+
+  return slices.every((slice) => {
+    const segments = Array.isArray(slice?.segments) ? slice.segments : [];
+
+    if (segments.length === 0) return false;
+
+    return segments.every((segment) => {
+      return Boolean(
+        segment?.origin?.iata_code &&
+          segment?.destination?.iata_code &&
+          segment?.departing_at &&
+          segment?.arriving_at
+      );
+    });
+  });
+}
+
+function validateOfferForCheckout(offer) {
+  assertOfferBookable(offer);
+
+  if (isOfferFromDuffelAirways(offer)) {
+    throw new Error(
+      "Detta testflygbolag kan inte bokas. Välj en annan resa."
+    );
+  }
+
+  if (!hasValidSlicesAndSegments(offer)) {
+    throw new Error(
+      "Flygresan saknar fullständiga reseuppgifter. Välj en annan resa."
+    );
+  }
+
+  return true;
+}
+
+function isOfferBlockedByExistingBooking(booking) {
+  if (!booking) return false;
+
+  return Boolean(
+    booking.status === "pending_payment" ||
+      booking.status === "payment_received" ||
+      booking.status === "confirmed" ||
+      booking.stripePaymentStatus === "paid" ||
+      booking.duffelOrderId ||
+      booking.confirmedAt
+  );
+}
+
 async function createCheckoutSession(req, res) {
   try {
     const {
@@ -109,43 +192,55 @@ async function createCheckoutSession(req, res) {
       addons = {},
     } = req.body;
 
-    if (
-      !offer_id ||
-      !Array.isArray(passengers) ||
-      passengers.length === 0 ||
-      !customer_email ||
-      !phone_number
-    ) {
+    if (!offer_id || !customer_email || !phone_number) {
       return res.status(400).json({
-        error: "offer_id, passengers, customer_email och phone_number krävs",
+        code: "MISSING_REQUIRED_FIELDS",
+        error: "offer_id, customer_email och phone_number krävs.",
       });
     }
 
-    for (let i = 0; i < passengers.length; i += 1) {
-      const passenger = passengers[i];
+    const passengerValidationError = validatePassengers(passengers);
 
-      if (!passenger.given_name || !passenger.family_name || !passenger.born_on) {
-        return res.status(400).json({
-          error: `Passagerare ${i + 1} saknar förnamn, efternamn eller födelsedatum.`,
-        });
-      }
+    if (passengerValidationError) {
+      return res.status(400).json({
+        code: "INVALID_PASSENGERS",
+        error: passengerValidationError,
+      });
     }
 
-    const seatSelection = Boolean(addons.seat_selection);
-    const checkedBags = Math.max(0, Number(addons.checked_bags || 0));
-    const passengerCount = passengers.length;
+    /**
+     * Stoppa samma Duffel offerId från att återanvändas.
+     *
+     * Detta blockerar inte samma flygavgång.
+     * Det blockerar bara samma unika offerId från samma sökning.
+     */
+    const blockingBooking = await findBlockingBookingByOfferId(offer_id);
 
-    const bookingReference = generateBookingReference();
+    if (isOfferBlockedByExistingBooking(blockingBooking)) {
+      return res.status(409).json({
+        code: "OFFER_ALREADY_USED",
+        error:
+          "Den här biljetten är inte längre tillgänglig. Gå tillbaka och gör en ny sökning för att hämta aktuella biljetter.",
+      });
+    }
 
     const offerResponse = await getOffer(offer_id);
     const offer = offerResponse?.data || offerResponse;
 
     if (!offer?.id) {
       return res.status(400).json({
+        code: "OFFER_NOT_FOUND",
         error: "Kunde inte hämta erbjudandet från Duffel.",
       });
     }
 
+    validateOfferForCheckout(offer);
+
+    const seatSelection = Boolean(addons.seat_selection);
+    const checkedBags = Math.max(0, Number(addons.checked_bags || 0));
+    const passengerCount = passengers.length;
+
+    const bookingReference = generateBookingReference();
     const pricing = convertOfferToSekPerPerson(offer);
 
     const flightAmountPerPersonSek = pricing.flightAmountPerPersonSek;
@@ -215,15 +310,18 @@ async function createCheckoutSession(req, res) {
 
     if (!lineItems.length) {
       return res.status(400).json({
+        code: "NO_PAYMENT_LINES",
         error: "Kunde inte skapa betalningsrader.",
       });
     }
 
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
 
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+      success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/cancel`,
 
       customer_email,
 
@@ -287,11 +385,17 @@ async function createCheckoutSession(req, res) {
 
     console.error("checkout error:", duffelError || rawMessage);
 
+    const lowerMessage = rawMessage.toLowerCase();
+
     const isOfferUnavailable =
-      rawMessage.toLowerCase().includes("select another offer") ||
-      rawMessage.toLowerCase().includes("latest availability") ||
-      rawMessage.toLowerCase().includes("offer") ||
-      error.response?.status === 422;
+      lowerMessage.includes("select another offer") ||
+      lowerMessage.includes("latest availability") ||
+      lowerMessage.includes("offer") ||
+      lowerMessage.includes("gått ut") ||
+      lowerMessage.includes("testflygbolag") ||
+      lowerMessage.includes("fullständiga reseuppgifter") ||
+      error.response?.status === 422 ||
+      error.status === 422;
 
     if (isOfferUnavailable) {
       return res.status(409).json({
