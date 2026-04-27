@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Check,
-  Download,
   Mail,
   Briefcase,
   CalendarDays,
@@ -10,15 +9,13 @@ import {
   ShieldCheck,
   Phone,
   Clock3,
-  CreditCard,
   CircleCheck,
   CircleDot,
 } from "lucide-react";
-import { getBooking } from "../api/flights";
+import { getBooking, downloadBookingPdf } from "../api/flights";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import styles from "../styles/SuccessPage.module.css";
-import { downloadBookingPdf } from "../api/flights";
 
 function formatMoney(amount, currency = "SEK") {
   const value = Number(amount || 0);
@@ -37,7 +34,10 @@ function formatMoney(amount, currency = "SEK") {
 
 function formatBookingAmount(amountMinor, currency = "sek") {
   if (amountMinor == null) return "-";
-  return formatMoney(Number(amountMinor) / 100, String(currency || "sek").toUpperCase());
+  return formatMoney(
+    Number(amountMinor) / 100,
+    String(currency || "sek").toUpperCase()
+  );
 }
 
 function formatDateTime(value) {
@@ -71,7 +71,10 @@ function formatDateOnly(value) {
 }
 
 function extractTripSummary(booking) {
-  const passengers = Array.isArray(booking?.passengers) ? booking.passengers : [];
+  const passengers = Array.isArray(booking?.passengers)
+    ? booking.passengers
+    : [];
+
   const snapshot = booking?.offer_snapshot || {};
   const slices = Array.isArray(snapshot?.slices) ? snapshot.slices : [];
 
@@ -187,8 +190,9 @@ export default function SuccessPage() {
         const normalizedStatus = String(nextStatus || "").toLowerCase();
 
         const shouldKeepPolling =
-          ["pending_payment", "payment_received", "pending"].includes(normalizedStatus) &&
-          attempt < 20;
+          ["pending_payment", "payment_received", "pending"].includes(
+            normalizedStatus
+          ) && attempt < 20;
 
         if (shouldKeepPolling) {
           timeoutId = setTimeout(() => {
@@ -219,7 +223,10 @@ export default function SuccessPage() {
   }, [sessionId]);
 
   const trip = useMemo(() => extractTripSummary(booking || {}), [booking]);
-  const passengers = Array.isArray(booking?.passengers) ? booking.passengers : [];
+
+  const passengers = Array.isArray(booking?.passengers)
+    ? booking.passengers
+    : [];
 
   const paymentRows = useMemo(() => {
     const rows = [];
@@ -227,28 +234,40 @@ export default function SuccessPage() {
     if (booking?.flight_total_sek_minor != null) {
       rows.push({
         label: "Flygbiljett",
-        value: formatBookingAmount(booking.flight_total_sek_minor, booking.currency),
+        value: formatBookingAmount(
+          booking.flight_total_sek_minor,
+          booking.currency
+        ),
       });
     }
 
     if (booking?.service_fee_total_sek_minor != null) {
       rows.push({
         label: "Skatter och avgifter",
-        value: formatBookingAmount(booking.service_fee_total_sek_minor, booking.currency),
+        value: formatBookingAmount(
+          booking.service_fee_total_sek_minor,
+          booking.currency
+        ),
       });
     }
 
     if (booking?.seat_total_sek_minor > 0) {
       rows.push({
         label: "Sittplatser",
-        value: formatBookingAmount(booking.seat_total_sek_minor, booking.currency),
+        value: formatBookingAmount(
+          booking.seat_total_sek_minor,
+          booking.currency
+        ),
       });
     }
 
     if (booking?.baggage_total_sek_minor > 0) {
       rows.push({
         label: "Incheckat bagage",
-        value: formatBookingAmount(booking.baggage_total_sek_minor, booking.currency),
+        value: formatBookingAmount(
+          booking.baggage_total_sek_minor,
+          booking.currency
+        ),
       });
     }
 
@@ -259,15 +278,19 @@ export default function SuccessPage() {
     return (
       <div className="pageShell">
         <SiteHeader />
+
         <main className={styles.page}>
           <div className={styles.container}>
             <div className={styles.stateCard}>
               <span className={styles.badge}>Hämtar bokning</span>
               <h1 className={styles.stateTitle}>Vi laddar din bokning</h1>
-              <p className={styles.stateText}>Detta tar bara några sekunder.</p>
+              <p className={styles.stateText}>
+                Detta tar bara några sekunder.
+              </p>
             </div>
           </div>
         </main>
+
         <SiteFooter />
       </div>
     );
@@ -277,14 +300,21 @@ export default function SuccessPage() {
     return (
       <div className="pageShell">
         <SiteHeader />
+
         <main className={styles.page}>
           <div className={styles.container}>
             <div className={styles.stateCard}>
               <span className={styles.badge}>Något gick fel</span>
-              <h1 className={styles.stateTitle}>Vi kunde inte visa bokningen</h1>
+
+              <h1 className={styles.stateTitle}>
+                Vi kunde inte visa bokningen
+              </h1>
+
               <p className={styles.stateText}>
-                {error || "Försök igen om en stund eller gå tillbaka till startsidan."}
+                {error ||
+                  "Försök igen om en stund eller gå tillbaka till startsidan."}
               </p>
+
               <button
                 type="button"
                 className={styles.primaryButton}
@@ -292,9 +322,19 @@ export default function SuccessPage() {
               >
                 Till startsidan
               </button>
+
+              <button
+                type="button"
+                className={styles.secondaryActionButton}
+                onClick={() => navigate("/hitta-bokning")}
+              >
+                <Briefcase size={18} />
+                Hitta min bokning
+              </button>
             </div>
           </div>
         </main>
+
         <SiteFooter />
       </div>
     );
@@ -331,7 +371,8 @@ export default function SuccessPage() {
                   <>
                     Din betalning är mottagen.
                     <br />
-                    Vi behöver kontrollera bokningen manuellt och kontaktar dig vid behov.
+                    Vi behöver kontrollera bokningen manuellt och kontaktar dig
+                    vid behov.
                   </>
                 ) : (
                   <>
@@ -365,10 +406,10 @@ export default function SuccessPage() {
             <button
               type="button"
               className={styles.secondaryActionButton}
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/hitta-bokning")}
             >
               <Briefcase size={18} />
-              Till mina resor
+              Hitta min bokning
             </button>
           </section>
 
@@ -398,7 +439,9 @@ export default function SuccessPage() {
                         <span className={styles.factLabel}>Resedatum</span>
                         <strong>
                           {formatDateOnly(trip.departDate)}
-                          {trip.returnDate ? ` – ${formatDateOnly(trip.returnDate)}` : ""}
+                          {trip.returnDate
+                            ? ` – ${formatDateOnly(trip.returnDate)}`
+                            : ""}
                         </strong>
                       </div>
                     </div>
@@ -408,7 +451,8 @@ export default function SuccessPage() {
                       <div>
                         <span className={styles.factLabel}>Resenärer</span>
                         <strong>
-                          {trip.passengerCount} {trip.passengerCount === 1 ? "vuxen" : "vuxna"}
+                          {trip.passengerCount}{" "}
+                          {trip.passengerCount === 1 ? "vuxen" : "vuxna"}
                         </strong>
                       </div>
                     </div>
@@ -418,7 +462,8 @@ export default function SuccessPage() {
                       <div>
                         <span className={styles.factLabel}>Rutt</span>
                         <strong>
-                          {trip.originCode || "-"} – {trip.destinationCode || "-"}
+                          {trip.originCode || "-"} –{" "}
+                          {trip.destinationCode || "-"}
                         </strong>
                       </div>
                     </div>
@@ -427,7 +472,11 @@ export default function SuccessPage() {
                       <ShieldCheck size={18} />
                       <div>
                         <span className={styles.factLabel}>Referens</span>
-                        <strong>{booking?.bookingReference || booking?.booking_reference || "-"}</strong>
+                        <strong>
+                          {booking?.bookingReference ||
+                            booking?.booking_reference ||
+                            "-"}
+                        </strong>
                       </div>
                     </div>
                   </div>
@@ -445,12 +494,18 @@ export default function SuccessPage() {
               <div className={styles.travelersList}>
                 {passengers.length > 0 ? (
                   passengers.map((passenger, index) => (
-                    <div className={styles.travelerRow} key={passenger.id || index}>
+                    <div
+                      className={styles.travelerRow}
+                      key={passenger.id || index}
+                    >
                       <div className={styles.travelerAvatar}>
                         <Users size={16} />
                       </div>
+
                       <div>
-                        <strong>{getPassengerDisplayName(passenger, index)}</strong>
+                        <strong>
+                          {getPassengerDisplayName(passenger, index)}
+                        </strong>
                         <span className={styles.travelerSub}>
                           {booking?.customer_email || "-"}
                         </span>
@@ -462,6 +517,7 @@ export default function SuccessPage() {
                     <div className={styles.travelerAvatar}>
                       <Users size={16} />
                     </div>
+
                     <div>
                       <strong>Resenär</strong>
                       <span className={styles.travelerSub}>
@@ -485,6 +541,7 @@ export default function SuccessPage() {
 
               <div className={styles.paymentStatus}>
                 <CircleCheck size={18} />
+
                 <div>
                   <strong>
                     {bookingStatus === "confirmed"
@@ -512,7 +569,11 @@ export default function SuccessPage() {
 
                 <div className={styles.infoRow}>
                   <span>Betaldatum</span>
-                  <strong>{formatDateTime(booking?.confirmed_at || booking?.created_at)}</strong>
+                  <strong>
+                    {formatDateTime(
+                      booking?.confirmed_at || booking?.created_at
+                    )}
+                  </strong>
                 </div>
 
                 {paymentRows.map((row) => (
@@ -528,7 +589,7 @@ export default function SuccessPage() {
                     {formatBookingAmount(booking?.amount, booking?.currency)}
                   </strong>
                 </div>
-                </div>
+              </div>
             </article>
 
             <article className={styles.nextStepsCard}>
@@ -537,12 +598,14 @@ export default function SuccessPage() {
               <div className={styles.stepsList}>
                 <div className={styles.stepItemActive}>
                   <CircleCheck size={18} />
+
                   <div>
                     <strong>
                       {bookingStatus === "confirmed"
                         ? "Bokning bekräftad"
                         : "Bokning mottagen"}
                     </strong>
+
                     <p>
                       {bookingStatus === "confirmed"
                         ? "En bekräftelse har skickats till din e-post."
@@ -553,6 +616,7 @@ export default function SuccessPage() {
 
                 <div className={styles.stepItem}>
                   <CircleDot size={18} />
+
                   <div>
                     <strong>Vi förbereder din resa</strong>
                     <p>Du får mer information inför avresa.</p>
@@ -561,6 +625,7 @@ export default function SuccessPage() {
 
                 <div className={styles.stepItem}>
                   <CircleDot size={18} />
+
                   <div>
                     <strong>Resan börjar snart</strong>
                     <p>Ha en fantastisk resa!</p>
@@ -571,6 +636,7 @@ export default function SuccessPage() {
 
             <article className={styles.helpCard}>
               <h2 className={styles.helpTitle}>Behöver du hjälp?</h2>
+
               <p className={styles.helpText}>
                 Vi finns här om du har frågor eller behöver göra ändringar.
               </p>
@@ -578,6 +644,7 @@ export default function SuccessPage() {
               <div className={styles.helpRows}>
                 <div className={styles.helpRow}>
                   <Phone size={18} />
+
                   <div>
                     <strong>08-123 45 67</strong>
                     <span>Mån–Fre 09:00–17:00</span>
@@ -586,6 +653,7 @@ export default function SuccessPage() {
 
                 <div className={styles.helpRow}>
                   <Mail size={18} />
+
                   <div>
                     <strong>info@utravel.se</strong>
                     <span>Svar inom 24 timmar</span>
@@ -594,6 +662,7 @@ export default function SuccessPage() {
 
                 <div className={styles.helpRow}>
                   <Clock3 size={18} />
+
                   <div>
                     <strong>Snabb support</strong>
                     <span>Vi hjälper dig före, under och efter resan</span>

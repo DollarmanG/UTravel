@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import styles from "../styles/SiteHeader.module.css";
 
@@ -5,12 +6,16 @@ export default function SiteHeader() {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <Logo />
+        <Logo
+          className={styles.logo}
+          textClassName={styles.logoText}
+          planeClassName={styles.logoPlane}
+        />
 
         <div className={styles.actions}>
-          <button type="button" className={styles.bookingButton}>
+          <Link to="/hitta-bokning" className={styles.bookingButton}>
             Hitta bokning
-          </button>
+          </Link>
         </div>
       </div>
     </header>

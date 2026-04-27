@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import styles from "../styles/SiteFooter.module.css";
 import Logo from "./Logo";
 
@@ -17,37 +18,23 @@ export default function SiteFooter() {
               <p className={styles.brandText}>
                 Din partner för minnesvärda resor sedan 2025.
               </p>
-
-              {/*
-                Sociala medier - sparas för framtida användning
-
-                <div className={styles.socials}>
-                  <a href="#" aria-label="Instagram" className={styles.socialLink}>
-                    <span className={styles.socialFallback}>ig</span>
-                  </a>
-
-                  <a href="#" aria-label="Facebook" className={styles.socialLink}>
-                    <span className={styles.socialFallback}>f</span>
-                  </a>
-                </div>
-              */}
             </div>
           </div>
 
           <div className={styles.linkColumn}>
             <h3 className={styles.columnTitle}>Information</h3>
-            <a href="#" className={styles.footerLink}>Om oss</a>
-            <a href="#" className={styles.footerLink}>Resevillkor</a>
-            <a href="#" className={styles.footerLink}>Integritetspolicy</a>
-            <a href="#" className={styles.footerLink}>Cookies</a>
+            <Link to="/om-oss" className={styles.footerLink}>Om oss</Link>
+            <Link to="/resevillkor" className={styles.footerLink}>Resevillkor</Link>
+            <Link to="/integritetspolicy" className={styles.footerLink}>Integritetspolicy</Link>
+            <Link to="/cookies" className={styles.footerLink}>Cookies</Link>
           </div>
 
           <div className={styles.linkColumn}>
             <h3 className={styles.columnTitle}>Kundservice</h3>
-            <a href="#" className={styles.footerLink}>Vanliga frågor</a>
-            <a href="#" className={styles.footerLink}>Betalning & bokning</a>
-            <a href="#" className={styles.footerLink}>Avbokning & ändringar</a>
-            <a href="#" className={styles.footerLink}>Kontakta oss</a>
+            <Link to="/vanliga-fragor" className={styles.footerLink}>Vanliga frågor</Link>
+            <Link to="/betalning-bokning" className={styles.footerLink}>Betalning & bokning</Link>
+            <Link to="/avbokning-andringar" className={styles.footerLink}>Avbokning & ändringar</Link>
+            <Link to="/kontakta-oss" className={styles.footerLink}>Kontakta oss</Link>
           </div>
 
           <div className={styles.contactColumn}>

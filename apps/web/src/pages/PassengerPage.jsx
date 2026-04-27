@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -242,6 +242,7 @@ export default function PassengerPage() {
 
   const [loading, setLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [contact, setContact] = useState({
     email: "",
@@ -293,9 +294,16 @@ export default function PassengerPage() {
     );
   }
 
-  async function handleCheckout(e) {
-    e.preventDefault();
-    setCheckoutError("");
+    async function handleCheckout(e) {
+      e.preventDefault();
+      setCheckoutError("");
+
+      if (!acceptedTerms) {
+        alert(
+          "Du måste godkänna UTravels resevillkor och integritetspolicy innan du går vidare till betalning."
+        );
+        return;
+      }
 
     const normalizedEmail = contact.email.trim();
     const normalizedConfirmEmail = contact.confirmEmail.trim();
@@ -827,12 +835,38 @@ export default function PassengerPage() {
                 </section>
 
                 <section className={styles.actionSection}>
-                  <div className={styles.termsRow}>
-                    <input id="terms" type="checkbox" required />
-                    <label htmlFor="terms">
-                      Jag har läst och godkänner villkoren, integritetspolicyn
-                      och resevillkoren.
+                  <div className={styles.termsBox}>
+                    <label className={styles.termsLabel} htmlFor="terms">
+                      <input
+                        id="terms"
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(event) => setAcceptedTerms(event.target.checked)}
+                        className={styles.termsCheckbox}
+                        required
+                      />
+
+                      <span>
+                        Jag har läst och godkänner{" "}
+                        <Link to="/resevillkor" className={styles.termsLink} target="_blank">
+                          UTravels resevillkor
+                        </Link>{" "}
+                        och{" "}
+                        <Link
+                          to="/integritetspolicy"
+                          className={styles.termsLink}
+                          target="_blank"
+                        >
+                          integritetspolicy
+                        </Link>
+                        .
+                      </span>
                     </label>
+
+                    <p className={styles.termsNote}>
+                      Observera: Flygbiljetter omfattas normalt inte av lagstadgad ångerrätt.
+                      Ändring, avbokning och återbetalning sker enligt flygbolagets villkor.
+                    </p>
                   </div>
 
                   {checkoutError && (
@@ -862,6 +896,7 @@ export default function PassengerPage() {
                       type="submit"
                       disabled={
                         loading ||
+                        !acceptedTerms ||
                         !contact.email ||
                         !contact.confirmEmail ||
                         contact.email.trim() !== contact.confirmEmail.trim() ||

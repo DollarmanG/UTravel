@@ -1,10 +1,16 @@
 const axios = require("axios");
 
+const DUFFEL_API_TOKEN = process.env.DUFFEL_API_TOKEN;
+
+if (!DUFFEL_API_TOKEN) {
+  throw new Error("❌ Duffel API token saknas i .env");
+}
+
 const duffel = axios.create({
   baseURL: "https://api.duffel.com",
   timeout: 30000,
   headers: {
-    Authorization: `Bearer ${process.env.DUFFEL_API_TOKEN}`,
+    Authorization: `Bearer ${DUFFEL_API_TOKEN}`,
     "Duffel-Version": process.env.DUFFEL_API_VERSION || "v2",
     "Content-Type": "application/json",
     Accept: "application/json",
