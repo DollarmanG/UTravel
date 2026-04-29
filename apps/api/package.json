@@ -11,12 +11,14 @@
     "prisma": "^7.8.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "axios": "^1.15.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "node-mailjet": "^6.0.11",
+    "pg": "^8.20.0",
     "stripe": "^22.0.2"
   }
 }
