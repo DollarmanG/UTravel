@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 
 const routes = require("./routes");
-const { listPlaceSuggestions } = require("./controllers/places.controller");
 
 const app = express();
 
@@ -19,13 +18,10 @@ app.get("/", (_, res) => {
   });
 });
 
-app.get("/api/places/suggestions", listPlaceSuggestions);
-
 app.get("/api/test", (_, res) => {
-  res.json({ ok: true, message: "Render kör senaste app.js" });
+  res.json({ ok: true, message: "API test fungerar" });
 });
 
 app.use("/api", routes.router);
-app.use("/api/bookings", require("./routes/booking.routes"));
 
 module.exports = app;
