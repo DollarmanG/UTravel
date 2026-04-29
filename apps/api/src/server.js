@@ -4,6 +4,14 @@ console.log("🔥 SERVER.JS FROM UTRAVEL API IS RUNNING");
 
 const app = require("./app");
 
+const { listPlaceSuggestions } = require("./controllers/places.controller");
+
+app.get("/api/test", (_, res) => {
+  res.json({ ok: true, message: "API test fungerar från server.js" });
+});
+
+app.get("/api/places/suggestions", listPlaceSuggestions);
+
 console.log("MODE:", process.env.NODE_ENV);
 console.log(
   "DUFFEL TOKEN:",
