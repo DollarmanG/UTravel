@@ -21,6 +21,10 @@ app.get("/", (_, res) => {
 
 app.get("/api/places/suggestions", listPlaceSuggestions);
 
+app.get("/api/test", (_, res) => {
+  res.json({ ok: true, message: "Render kör senaste app.js" });
+});
+
 app.use("/api", routes.router);
 app.use("/api/bookings", require("./routes/booking.routes"));
 
