@@ -12,7 +12,7 @@ import {
   CircleCheck,
   CircleDot,
 } from "lucide-react";
-import { getBooking, downloadBookingPdf } from "../api/flights";
+import { getBooking, downloadBookingPdf, sendBookingEmail } from "../api/flights";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import styles from "../styles/SuccessPage.module.css";
@@ -162,6 +162,8 @@ export default function SuccessPage() {
   const [bookingStatus, setBookingStatus] = useState("");
   const [booking, setBooking] = useState(null);
   const [error, setError] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailMessage, setEmailMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +275,28 @@ export default function SuccessPage() {
 
     return rows;
   }, [booking]);
+
+  async function handleSendEmail() {
+    try {
+      setEmailSending(true);
+      setEmailMessage("");
+
+      const reference = booking?.bookingReference || booking?.booking_reference;
+
+      if (!reference) {
+        setEmailMessage("Bokningsreferens saknas.");
+        return;
+      }
+
+      await sendBookingEmail(reference);
+
+      setEmailMessage("Bekräftelsen har skickats till din e-post.");
+    } catch (err) {
+      setEmailMessage(err.message || "Kunde inte skicka e-postbekräftelsen.");
+    } finally {
+      setEmailSending(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -398,9 +422,14 @@ export default function SuccessPage() {
               Ladda ner bekräftelse (PDF)
             </button>
 
-            <button type="button" className={styles.secondaryActionButton}>
+            <button
+              type="button"
+              className={styles.secondaryActionButton}
+              onClick={handleSendEmail}
+              disabled={emailSending}
+            >
               <Mail size={18} />
-              Skicka till e-post
+              {emailSending ? "Skickar..." : "Skicka till e-post"}
             </button>
 
             <button
@@ -412,6 +441,10 @@ export default function SuccessPage() {
               Hitta min bokning
             </button>
           </section>
+
+          {emailMessage ? (
+            <p style={{ marginTop: 12, fontWeight: 600 }}>{emailMessage}</p>
+          ) : null}
 
           <section className={styles.gridTop}>
             <article className={styles.tripCard}>

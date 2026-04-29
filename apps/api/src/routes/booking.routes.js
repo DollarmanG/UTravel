@@ -5,11 +5,12 @@ const {
   getBookingBySessionId,
   downloadBookingPdf,
   findBooking,
+  sendBookingEmail,
 } = require("../controllers/booking.controller");
 
 router.post("/find", findBooking);
-
-router.get("/:sessionId", getBookingBySessionId);
+router.post("/:reference/send-email", sendBookingEmail);
 router.get("/:reference/pdf", downloadBookingPdf);
+router.get("/:sessionId", getBookingBySessionId);
 
 module.exports = router;

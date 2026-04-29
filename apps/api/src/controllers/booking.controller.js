@@ -4,6 +4,10 @@ const {
   getBookingByReference,
   findBookingByReferenceAndIdentifier,
 } = require("../services/booking.service");
+const {
+  sendMailjetEmail,
+  buildBookingConfirmationHtml,
+} = require("../services/mail.service");
 
 function mapBookingForFrontend(booking) {
   return {
@@ -119,6 +123,65 @@ async function findBooking(req, res) {
 
     return res.status(500).json({
       error: "Något gick fel när bokningen skulle hämtas.",
+    });
+  }
+}
+
+async function sendBookingEmail(req, res) {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({
+        error: "Bokningsreferens krävs.",
+      });
+    }
+
+    const dbBooking = await getBookingByReference(reference);
+
+    if (!dbBooking) {
+      return res.status(404).json({
+        error: "Bokningen hittades inte.",
+      });
+    }
+
+    if (!dbBooking.customerEmail) {
+      return res.status(400).json({
+        error: "Bokningen saknar e-postadress.",
+      });
+    }
+
+    const booking = mapBookingForFrontend(dbBooking);
+
+    const routeLabel = getRouteLabel(booking);
+    const route = getRoute(booking);
+    const departDate = formatDateOnly(getDepartDate(booking));
+    const returnDateValue = getReturnDate(booking);
+    const returnDate = returnDateValue ? formatDateOnly(returnDateValue) : "-";
+
+    const html = buildBookingConfirmationHtml({
+      booking,
+      routeLabel,
+      route,
+      departDate,
+      returnDate,
+    });
+
+    await sendMailjetEmail({
+      to: booking.customer_email,
+      subject: `Bokningsbekräftelse – ${booking.bookingReference}`,
+      html,
+    });
+
+    return res.json({
+      success: true,
+      message: "Bekräftelsen har skickats till e-post.",
+    });
+  } catch (error) {
+    console.error("sendBookingEmail error:", error.response?.data || error);
+
+    return res.status(500).json({
+      error: "Kunde inte skicka e-postbekräftelsen.",
     });
   }
 }
@@ -351,7 +414,7 @@ async function downloadBookingPdf(req, res) {
       .fillColor("#FFFFFF")
       .font("Helvetica-Bold")
       .fontSize(28)
-      .text("UTravel", 50, 42);
+      .text("Utravel", 50, 42);
 
     doc
       .fillColor("#CBD5E1")
@@ -390,7 +453,9 @@ async function downloadBookingPdf(req, res) {
     drawLabelValue(
       doc,
       "Status",
-      booking.status === "confirmed" ? "Bokning bekräftad" : "Inväntar bekräftelse",
+      booking.status === "confirmed"
+        ? "Bokning bekräftad"
+        : "Inväntar bekräftelse",
       72,
       156,
       120
@@ -478,7 +543,7 @@ async function downloadBookingPdf(req, res) {
       .font("Helvetica")
       .fontSize(9)
       .text(
-        `UTravel • ${bookingReference} • ${formatDate(
+        `Utravel • ${bookingReference} • ${formatDate(
           booking?.confirmed_at || booking?.created_at
         )}`,
         50,
@@ -501,4 +566,5 @@ module.exports = {
   getBookingBySessionId,
   downloadBookingPdf,
   findBooking,
+  sendBookingEmail,
 };
