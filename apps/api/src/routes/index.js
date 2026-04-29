@@ -11,7 +11,7 @@ const router = express.Router();
 router.use("/search", searchRoutes);
 router.use("/checkout", checkoutRoutes);
 router.use("/bookings", bookingRoutes);
-router.use("/", placesRoutes); // ✅ NY
+router.use("/places", placesRoutes);
 
 module.exports = {
   router,
