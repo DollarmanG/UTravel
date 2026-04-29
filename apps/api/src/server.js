@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+console.log("🔥 SERVER.JS FROM UTRAVEL API IS RUNNING");
+
 const app = require("./app");
 
 console.log("MODE:", process.env.NODE_ENV);
