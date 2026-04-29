@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 
 const routes = require("./routes");
+const { listPlaceSuggestions } = require("./controllers/places.controller");
 
 const app = express();
 
@@ -17,6 +18,8 @@ app.get("/", (_, res) => {
     service: "utravel-api",
   });
 });
+
+app.get("/api/places/suggestions", listPlaceSuggestions);
 
 app.use("/api", routes.router);
 app.use("/api/bookings", require("./routes/booking.routes"));
