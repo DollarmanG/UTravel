@@ -513,10 +513,6 @@ export default function SuccessPage() {
                       </div>
                     </div>
                   </div>
-
-                  <button type="button" className={styles.textLinkButton}>
-                    Visa resedetaljer
-                  </button>
                 </div>
               </div>
             </article>

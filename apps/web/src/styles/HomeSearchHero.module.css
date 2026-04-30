@@ -1119,3 +1119,125 @@
     margin-left: -26px;
   }
 }
+/* ================================
+   TYDLIGARE HOVER-EFFEKT KALENDER
+   ================================ */
+
+.dayButton:not(:disabled):hover {
+  background: #dbeafe;
+  color: #06295d;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 0 1px rgba(6, 41, 93, 0.16),
+    0 6px 18px rgba(3, 28, 67, 0.12);
+}
+
+/* Gör att valt datum alltid behåller blå färg även vid hover */
+.selectedDay,
+.selectedDay:hover {
+  background: linear-gradient(180deg, var(--primary-light), var(--primary-mid));
+  color: #ffffff;
+  border-radius: 50%;
+  box-shadow:
+    0 8px 22px rgba(8, 48, 105, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Datum i markerat intervall får tydligare hover utan att bli vitt */
+.rangeDay:not(.selectedDay):not(:disabled):hover {
+  background: #cfe2ff;
+  color: #06295d;
+  border-radius: 999px;
+}
+
+/* Disabled/passerade datum ska aldrig få hover-effekt */
+.disabledDay:hover,
+.dayButton:disabled:hover {
+  color: #c8ced8 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ================================
+   PROFESSIONELL PADDING / LAYOUT
+   FÖR ENKELRESA
+   ================================ */
+
+.searchBarOneWay {
+  grid-template-columns: 1.45fr 1.45fr 1fr 1.08fr 200px;
+  padding: 0 18px 0 0;
+}
+
+.searchBarOneWay .searchField {
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+.searchBarOneWay .placeFieldWrap .searchField {
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+.searchBarOneWay .searchButton {
+  margin-right: 0;
+  min-width: 178px;
+}
+
+/* Stora skärmar */
+@media (min-width: 1181px) {
+  .searchBarOneWay {
+    min-height: 118px;
+  }
+
+  .searchBarOneWay .searchField {
+    height: 72px;
+  }
+
+  .searchBarOneWay .searchButton {
+    height: 72px;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1180px) {
+  .searchBarOneWay {
+    grid-template-columns: 1fr 1fr;
+    padding: 18px;
+  }
+
+  .searchBarOneWay .searchField {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .searchBarOneWay .searchButton {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin: 18px 0 0;
+  }
+}
+
+/* Mobil */
+@media (max-width: 720px) {
+  .searchBarOneWay {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .searchBarOneWay .searchField {
+    padding: 16px 20px;
+  }
+
+  .searchBarOneWay .searchButton {
+    width: calc(100% - 32px);
+    margin: 14px 16px 16px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 390px) {
+  .searchBarOneWay .searchField {
+    padding: 15px 16px;
+  }
+}

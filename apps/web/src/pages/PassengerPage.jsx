@@ -18,7 +18,6 @@ import BookingSteps from "../components/BookingSteps";
 import AppDatePicker from "../components/AppDatePicker";
 import styles from "../styles/PassengerPage.module.css";
 
-
 const EUR_TO_SEK = Number(import.meta.env.VITE_EUR_TO_SEK || 11.5);
 const SERVICE_FEE_SEK = Number(import.meta.env.VITE_SERVICE_FEE_SEK || 300);
 const SEAT_PRICE_SEK = 149;
@@ -130,10 +129,125 @@ function formatDate(dateString) {
   }
 }
 
-function createPassenger(index) {
+function formatDateInput(date) {
+  return date.toISOString().split("T")[0];
+}
+
+function getStoredPassengerComposition() {
+  try {
+    const stored = sessionStorage.getItem("utravel_passengers");
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+
+    return {
+      adults: Math.max(1, Number(parsed.adults || 1)),
+      infants: Math.max(0, Number(parsed.infants || 0)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getPassengerCompositionFromState(state, offer) {
+  const stored = getStoredPassengerComposition();
+
+  const adultsFromState =
+    Number(state?.passengers?.adults || 0) ||
+    Number(state?.search?.adults || 0) ||
+    Number(state?.searchParams?.adults || 0) ||
+    Number(stored?.adults || 0);
+
+  const infantsFromState =
+    Number(state?.passengers?.infants || 0) ||
+    Number(state?.search?.infants || 0) ||
+    Number(state?.searchParams?.infants || 0) ||
+    Number(stored?.infants || 0);
+
+  const offerPassengers = Array.isArray(offer?.passengers)
+    ? offer.passengers.length
+    : 0;
+
+  return {
+    adults: Math.max(1, adultsFromState || offerPassengers || 1),
+    infants: Math.max(0, infantsFromState || 0),
+  };
+}
+
+function getPassengerTypeLabel(type) {
+  if (type === "infant") return "Barn 0–2 år";
+  return "Vuxen";
+}
+
+function getPassengerTitle(passenger, index) {
+  if (passenger.type === "infant") {
+    return `Barn ${passenger.typeIndex}`;
+  }
+
+  if (index === 0) {
+    return "Vuxen 1 (Huvudresenär)";
+  }
+
+  return `Vuxen ${passenger.typeIndex}`;
+}
+
+function getPassengerAgeText(type) {
+  if (type === "infant") {
+    return "Barn måste vara mellan 0 och 2 år.";
+  }
+
+  return "Vuxen måste vara minst 12 år.";
+}
+
+function getBirthDateLimits(type) {
+  const today = new Date();
+
+  if (type === "infant") {
+    const minDate = new Date(today);
+    minDate.setFullYear(today.getFullYear() - 2);
+
+    return {
+      minDate,
+      maxDate: today,
+      min: formatDateInput(minDate),
+      max: formatDateInput(today),
+    };
+  }
+
+  const maxAdultDate = new Date(today);
+  maxAdultDate.setFullYear(today.getFullYear() - 12);
+
+  return {
+    minDate: null,
+    maxDate: maxAdultDate,
+    min: "",
+    max: formatDateInput(maxAdultDate),
+  };
+}
+
+function validatePassengerAge(passenger, index) {
+  const age = getAgeFromDate(passenger.born_on);
+
+  if (age == null) {
+    return `Ogiltigt födelsedatum för resenär ${index + 1}.`;
+  }
+
+  if (passenger.type === "infant" && (age < 0 || age > 2)) {
+    return `Barn ${passenger.typeIndex} måste vara mellan 0 och 2 år.`;
+  }
+
+  if (passenger.type === "adult" && age < 12) {
+    return `Vuxen ${passenger.typeIndex} måste vara minst 12 år.`;
+  }
+
+  return "";
+}
+
+function createPassenger(index, type = "adult", typeIndex = index + 1) {
   return {
     id: `pas_${index + 1}_${Date.now()}`,
-    type: "adult",
+    type,
+    typeIndex,
     title: "mr",
     given_name: "",
     family_name: "",
@@ -144,17 +258,45 @@ function createPassenger(index) {
   };
 }
 
-function getPassengerCountFromState(state, offer) {
-  const adultsFromState = Number(state?.searchParams?.adults || 0);
-  if (adultsFromState > 0) return adultsFromState;
-
+function createPassengersFromComposition(composition, offer) {
+  const passengers = [];
   const offerPassengers = Array.isArray(offer?.passengers)
-    ? offer.passengers.length
-    : 0;
+    ? offer.passengers
+    : [];
 
-  if (offerPassengers > 0) return offerPassengers;
+  for (let i = 0; i < composition.adults; i += 1) {
+    const offerPassenger = offerPassengers[passengers.length];
 
-  return 1;
+    passengers.push({
+      ...createPassenger(passengers.length, "adult", i + 1),
+      duffelPassengerId: offerPassenger?.id || "",
+    });
+  }
+
+  for (let i = 0; i < composition.infants; i += 1) {
+    const offerPassenger = offerPassengers[passengers.length];
+
+    passengers.push({
+      ...createPassenger(passengers.length, "infant", i + 1),
+      duffelPassengerId: offerPassenger?.id || "",
+    });
+  }
+
+  return passengers;
+}
+
+function getPassengerLabelFromComposition(composition) {
+  const parts = [];
+
+  parts.push(
+    `${composition.adults} ${composition.adults === 1 ? "vuxen" : "vuxna"}`
+  );
+
+  if (composition.infants > 0) {
+    parts.push(`${composition.infants} barn 0–2 år`);
+  }
+
+  return parts.join(", ");
 }
 
 function extractTripSummary(offer, state, passengerCount) {
@@ -226,9 +368,9 @@ function extractTripSummary(offer, state, passengerCount) {
     destinationCode,
     departDate,
     returnDate,
-    passengersLabel: `${passengerCount} ${
-      passengerCount === 1 ? "vuxen" : "vuxna"
-    }`,
+    passengersLabel:
+      state?.passengerLabel ||
+      `${passengerCount} ${passengerCount === 1 ? "resenär" : "resenärer"}`,
     cabin,
   };
 }
@@ -238,7 +380,15 @@ export default function PassengerPage() {
   const navigate = useNavigate();
   const offer = state?.offer;
 
-  const basePassengerCount = getPassengerCountFromState(state, offer);
+  const passengerComposition = useMemo(
+    () => getPassengerCompositionFromState(state, offer),
+    [state, offer]
+  );
+
+  const basePassengerCount =
+    passengerComposition.adults + passengerComposition.infants;
+
+  const passengerLabel = getPassengerLabelFromComposition(passengerComposition);
 
   const [loading, setLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
@@ -252,9 +402,7 @@ export default function PassengerPage() {
   });
 
   const [passengers, setPassengers] = useState(() =>
-    Array.from({ length: basePassengerCount }, (_, index) =>
-      createPassenger(index)
-    )
+    createPassengersFromComposition(passengerComposition, offer)
   );
 
   const [addons, setAddons] = useState({
@@ -282,8 +430,16 @@ export default function PassengerPage() {
     pricing.pricePerPersonSek + pricing.taxesAndFeesPerPersonSek;
 
   const trip = useMemo(
-    () => extractTripSummary(offer, state, passengerCount),
-    [offer, state, passengerCount]
+    () =>
+      extractTripSummary(
+        offer,
+        {
+          ...state,
+          passengerLabel,
+        },
+        passengerCount
+      ),
+    [offer, state, passengerCount, passengerLabel]
   );
 
   function updatePassenger(index, key, value) {
@@ -294,16 +450,16 @@ export default function PassengerPage() {
     );
   }
 
-    async function handleCheckout(e) {
-      e.preventDefault();
-      setCheckoutError("");
+  async function handleCheckout(e) {
+    e.preventDefault();
+    setCheckoutError("");
 
-      if (!acceptedTerms) {
-        alert(
-          "Du måste godkänna UTravels resevillkor och integritetspolicy innan du går vidare till betalning."
-        );
-        return;
-      }
+    if (!acceptedTerms) {
+      alert(
+        "Du måste godkänna UTravels resevillkor och integritetspolicy innan du går vidare till betalning."
+      );
+      return;
+    }
 
     const normalizedEmail = contact.email.trim();
     const normalizedConfirmEmail = contact.confirmEmail.trim();
@@ -338,44 +494,71 @@ export default function PassengerPage() {
       const age = getAgeFromDate(passenger.born_on);
 
       if (!passenger.given_name?.trim()) {
-        alert(`Förnamn saknas för resenär ${i + 1}.`);
+        alert(`Förnamn saknas för ${getPassengerTitle(passenger, i)}.`);
         return;
       }
 
       if (!passenger.family_name?.trim()) {
-        alert(`Efternamn saknas för resenär ${i + 1}.`);
+        alert(`Efternamn saknas för ${getPassengerTitle(passenger, i)}.`);
         return;
       }
 
       if (!passenger.born_on) {
-        alert(`Födelsedatum saknas för resenär ${i + 1}.`);
+        alert(`Födelsedatum saknas för ${getPassengerTitle(passenger, i)}.`);
         return;
       }
 
       if (isFutureDate(passenger.born_on)) {
         alert(
-          `Födelsedatum för resenär ${i + 1} kan inte ligga i framtiden.`
+          `Födelsedatum för ${getPassengerTitle(
+            passenger,
+            i
+          )} kan inte ligga i framtiden.`
         );
         return;
       }
 
       if (age == null) {
-        alert(`Ogiltigt födelsedatum för resenär ${i + 1}.`);
+        alert(`Ogiltigt födelsedatum för ${getPassengerTitle(passenger, i)}.`);
         return;
       }
 
-      if (passenger.type === "adult" && age < 12) {
-        alert(`Resenär ${i + 1} är inte vuxen enligt valt passagerartyp.`);
+      const ageError = validatePassengerAge(passenger, i);
+
+      if (ageError) {
+        alert(ageError);
         return;
       }
+    }
+
+    const offerPassengers = Array.isArray(offer?.passengers)
+      ? offer.passengers
+      : [];
+
+    console.log("DEBUG offer:", offer);
+    console.log("DEBUG offer.passengers:", offerPassengers);
+    console.log("DEBUG local passengers:", passengers);
+
+    if (offerPassengers.length < passengers.length) {
+      setCheckoutError(
+        "Flygbolagets passagerar-ID saknas i vald offert. Gör en ny sökning och välj resan igen. Om felet kvarstår behöver backend skicka vidare offer.passengers från Duffel."
+      );
+      return;
     }
 
     setLoading(true);
 
     try {
-      const checkoutPassengers = passengers.map((passenger, index) => ({
-        id: passenger.id || `pas_${index + 1}`,
-        type: passenger.type || "adult",
+    const checkoutPassengers = passengers.map((passenger, index) => {
+      const offerPassenger = offerPassengers[index];
+
+      const duffelType =
+        offerPassenger?.type ||
+        (passenger.type === "infant" ? "infant_without_seat" : "adult");
+
+      return {
+        id: offerPassenger?.id || passenger.duffelPassengerId,
+        type: duffelType,
         title: passenger.title || (passenger.gender === "f" ? "ms" : "mr"),
         given_name: passenger.given_name?.trim(),
         family_name: passenger.family_name?.trim(),
@@ -383,7 +566,10 @@ export default function PassengerPage() {
         gender: passenger.gender,
         nationality: passenger.nationality?.trim(),
         passport_number: passenger.passport_number?.trim(),
-      }));
+      };
+    });
+
+console.log("DEBUG checkoutPassengers:", checkoutPassengers);
 
       const data = await createCheckout({
         offer_id: offer.id,
@@ -557,17 +743,16 @@ export default function PassengerPage() {
                     <div className={styles.sectionHeaderRow}>
                       <div>
                         <h2 className={styles.sectionTitle}>
-                          Resenär {index + 1}
-                          {index === 0 ? " (Huvudresenär)" : ""}
+                          {getPassengerTitle(passenger, index)}
                         </h2>
                         <p className={styles.sectionText}>
-                          Kontrollera att namnet matchar pass eller nationellt
-                          ID.
+                          {getPassengerTypeLabel(passenger.type)} ·{" "}
+                          {getPassengerAgeText(passenger.type)}
                         </p>
                       </div>
 
                       <span className={styles.lockedPassengerText}>
-                        Antal resenärer är låst
+                        {getPassengerTypeLabel(passenger.type)}
                       </span>
                     </div>
 
@@ -646,16 +831,23 @@ export default function PassengerPage() {
                           className={styles.label}
                           htmlFor={`born_on_${index}`}
                         >
-                          Födelsedatum *
+                          {passenger.type === "infant"
+                            ? "Födelsedatum, barn 0–2 år *"
+                            : "Födelsedatum, vuxen *"}
                         </label>
+
                         <div className={styles.inputWrap}>
                           <CalendarDays size={18} />
+
                           <AppDatePicker
                             id={`born_on_${index}`}
                             value={passenger.born_on}
-                            onChange={(value) => updatePassenger(index, "born_on", value)}
-                            placeholder="Välj födelsedatum"
-                            maxDate={new Date()}
+                            onChange={(value) =>
+                              updatePassenger(index, "born_on", value)
+                            }
+                            placeholder="ÅÅÅÅ-MM-DD"
+                            minDate={getBirthDateLimits(passenger.type).minDate}
+                            maxDate={getBirthDateLimits(passenger.type).maxDate}
                             className={styles.input}
                             required
                           />
@@ -841,14 +1033,20 @@ export default function PassengerPage() {
                         id="terms"
                         type="checkbox"
                         checked={acceptedTerms}
-                        onChange={(event) => setAcceptedTerms(event.target.checked)}
+                        onChange={(event) =>
+                          setAcceptedTerms(event.target.checked)
+                        }
                         className={styles.termsCheckbox}
                         required
                       />
 
                       <span>
                         Jag har läst och godkänner{" "}
-                        <Link to="/resevillkor" className={styles.termsLink} target="_blank">
+                        <Link
+                          to="/resevillkor"
+                          className={styles.termsLink}
+                          target="_blank"
+                        >
                           UTravels resevillkor
                         </Link>{" "}
                         och{" "}
@@ -864,8 +1062,9 @@ export default function PassengerPage() {
                     </label>
 
                     <p className={styles.termsNote}>
-                      Observera: Flygbiljetter omfattas normalt inte av lagstadgad ångerrätt.
-                      Ändring, avbokning och återbetalning sker enligt flygbolagets villkor.
+                      Observera: Flygbiljetter omfattas normalt inte av
+                      lagstadgad ångerrätt. Ändring, avbokning och återbetalning
+                      sker enligt flygbolagets villkor.
                     </p>
                   </div>
 
@@ -1029,7 +1228,7 @@ export default function PassengerPage() {
 
                   <div className={styles.priceRowMuted}>
                     <span>Resenärer</span>
-                    <strong>{passengerCount}</strong>
+                    <strong>{passengerLabel}</strong>
                   </div>
 
                   <div className={styles.priceRowMuted}>

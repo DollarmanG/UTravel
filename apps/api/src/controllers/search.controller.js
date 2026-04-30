@@ -149,6 +149,36 @@ function isBookableSearchOffer(offer) {
   return true;
 }
 
+function buildPassengersForDuffel({ adults = 1, infants = 0 }) {
+  const adultCount = Math.max(1, Number(adults || 1));
+  const infantCount = Math.max(0, Number(infants || 0));
+
+  const passengers = [];
+
+  for (let i = 0; i < adultCount; i += 1) {
+    passengers.push({
+      type: "adult",
+    });
+  }
+
+  for (let i = 0; i < infantCount; i += 1) {
+    passengers.push({
+      type: "infant_without_seat",
+    });
+  }
+
+  return passengers;
+}
+
+function mapOfferPassengersForFrontend(offer) {
+  if (!Array.isArray(offer?.passengers)) return [];
+
+  return offer.passengers.map((passenger) => ({
+    id: passenger.id,
+    type: passenger.type,
+  }));
+}
+
 function mapOfferForFrontend(offer) {
   const pricing = getAmountsInSek(offer.total_amount, offer.total_currency);
 
@@ -162,6 +192,7 @@ function mapOfferForFrontend(offer) {
     expires_at: offer.expires_at,
     owner: offer.owner,
     slices: offer.slices,
+    passengers: mapOfferPassengersForFrontend(offer),
   };
 }
 
@@ -173,6 +204,7 @@ async function searchFlights(req, res) {
       departure_date,
       return_date,
       adults = 1,
+      infants = 0,
     } = req.body;
 
     if (!origin || !destination || !departure_date) {
@@ -182,6 +214,7 @@ async function searchFlights(req, res) {
     }
 
     const adultCount = Math.max(1, Number(adults || 1));
+    const infantCount = Math.max(0, Number(infants || 0));
 
     const slices = [
       {
@@ -199,9 +232,10 @@ async function searchFlights(req, res) {
       });
     }
 
-    const passengers = Array.from({ length: adultCount }).map(() => ({
-      type: "adult",
-    }));
+    const passengers = buildPassengersForDuffel({
+      adults: adultCount,
+      infants: infantCount,
+    });
 
     const response = await createOfferRequest({
       slices,
@@ -219,6 +253,10 @@ async function searchFlights(req, res) {
       received: rawOffers.length,
       returned: filteredOffers.length,
       filteredOut: rawOffers.length - filteredOffers.length,
+      adults: adultCount,
+      infants: infantCount,
+      passengersRequested: passengers.length,
+      firstOfferPassengers: filteredOffers[0]?.passengers?.length || 0,
     });
 
     const offers = filteredOffers.map(mapOfferForFrontend);
@@ -229,6 +267,9 @@ async function searchFlights(req, res) {
         received_count: rawOffers.length,
         returned_count: offers.length,
         filtered_count: rawOffers.length - offers.length,
+        adults: adultCount,
+        infants: infantCount,
+        passengers_count: passengers.length,
       },
     });
   } catch (error) {

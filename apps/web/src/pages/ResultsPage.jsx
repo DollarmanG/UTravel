@@ -125,6 +125,18 @@ function getUniqueValidOffers(rawOffers) {
   return result;
 }
 
+function getPassengerLabel(adults, infants) {
+  const parts = [];
+
+  parts.push(`${adults} ${adults === 1 ? "vuxen" : "vuxna"}`);
+
+  if (infants > 0) {
+    parts.push(`${infants} barn 0–2 år`);
+  }
+
+  return parts.join(", ");
+}
+
 export default function ResultsPage() {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -132,6 +144,10 @@ export default function ResultsPage() {
   const rawOffers = state?.offers || [];
   const search = state?.search || null;
   const meta = state?.meta || state?.searchMeta || null;
+
+  const adults = Number(search?.adults || state?.passengers?.adults || 1);
+  const infants = Number(search?.infants || state?.passengers?.infants || 0);
+  const passengerLabel = getPassengerLabel(adults, infants);
 
   const offers = useMemo(() => {
     return getUniqueValidOffers(rawOffers);
@@ -189,9 +205,20 @@ export default function ResultsPage() {
     navigate("/passengers", {
       state: {
         offer,
-        search,
+        search: {
+          ...search,
+          adults,
+          infants,
+        },
+        passengers: {
+          adults,
+          infants,
+        },
+        meta: state?.meta || null,
+        searchMeta: state?.searchMeta || null,
         searchParams: {
-          adults: Number(search?.adults || 1),
+          adults,
+          infants,
           from: search?.origin || "",
           to: search?.destination || "",
           departDate: search?.departure_date || "",
@@ -199,9 +226,7 @@ export default function ResultsPage() {
           cabinClass: search?.cabin_class || "Ekonomi",
         },
         bookingSummary: {
-          passengersLabel: `${Number(search?.adults || 1)} ${
-            Number(search?.adults || 1) > 1 ? "vuxna" : "vuxen"
-          }`,
+          passengersLabel: passengerLabel,
           route: `${search?.origin || ""} - ${search?.destination || ""}`,
         },
       },
@@ -271,9 +296,7 @@ export default function ResultsPage() {
 
             <div className={styles.searchSummaryItem}>
               <Users size={16} />
-              <span>
-                {search.adults} {search.adults > 1 ? "vuxna" : "vuxen"}
-              </span>
+              <span>{passengerLabel}</span>
             </div>
           </div>
 
@@ -301,6 +324,8 @@ export default function ResultsPage() {
               </strong>
             </p>
           </div>
+
+          {totalFilteredCount > 0 ? null : null}
 
           {resultCount > 0 ? (
             <div className={styles.sortCards}>

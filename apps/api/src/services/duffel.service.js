@@ -240,6 +240,24 @@ function normalizeOfferPricing(offer) {
   };
 }
 
+function normalizeOfferForFrontend(offer) {
+  const data = offer?.data || offer;
+
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  return {
+    ...data,
+    passengers: Array.isArray(data.passengers)
+      ? data.passengers.map((passenger) => ({
+          id: passenger.id,
+          type: passenger.type,
+        }))
+      : [],
+  };
+}
+
 module.exports = {
   createOfferRequest,
   getOffer,
@@ -251,4 +269,5 @@ module.exports = {
   getPlaceSuggestions,
   assertOfferBookable,
   normalizeOfferPricing,
+  normalizeOfferForFrontend,
 };

@@ -184,6 +184,17 @@ function getFilteredRelevantPlaces(places, query) {
   ).slice(0, 8);
 }
 
+function savePassengerComposition({ adults = 1, infants = 0 }) {
+  const composition = {
+    adults: Math.max(1, Number(adults || 1)),
+    infants: Math.max(0, Number(infants || 0)),
+  };
+
+  sessionStorage.setItem("utravel_passengers", JSON.stringify(composition));
+
+  return composition;
+}
+
 function groupPlacesByCountry(options) {
   return options.reduce((acc, option) => {
     const country = option.countryName || "Övrigt";
@@ -492,7 +503,7 @@ function TravelerPicker({ adults, infants, setAdults, setInfants, onClose }) {
       </button>
 
       <p className={styles.travelerNote}>
-        Spädbarn 0–2 år reser i knä och räknas inte som en egen resenär.
+        Barn 0–2 år visas på resenärssidan och födelsedatum måste matcha åldern.
       </p>
     </div>
   );
@@ -530,7 +541,9 @@ export default function HomeSearchHero() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const travelerText = `${adults} vuxna, ${infants} barn`;
+  const travelerText = `${adults} ${
+    adults === 1 ? "vuxen" : "vuxna"
+  }, ${infants} barn`;
 
   const groupedOrigins = useMemo(
     () => groupPlacesByCountry(originOptions),
@@ -739,12 +752,18 @@ export default function HomeSearchHero() {
 
     setLoading(true);
 
+    const passengerComposition = savePassengerComposition({
+      adults,
+      infants,
+    });
+
     const form = {
       origin,
       destination,
       departure_date,
       return_date,
-      adults,
+      adults: passengerComposition.adults,
+      infants: passengerComposition.infants,
     };
 
     try {
@@ -756,6 +775,7 @@ export default function HomeSearchHero() {
           meta: data.meta || null,
           searchMeta: data.meta || null,
           search: form,
+          passengers: passengerComposition,
         },
       });
     } catch (err) {
@@ -778,13 +798,11 @@ export default function HomeSearchHero() {
     >
       <header className={styles.navbar}>
         <div className={styles.navbarInner}>
-          <Link to="/" className={styles.logoLink} aria-label="UTravel startsida">
-            <Logo
-              className={styles.headerLogo}
-              textClassName={styles.headerLogoText}
-              planeClassName={styles.headerLogoPlane}
-            />
-          </Link>
+          <Logo
+            className={styles.headerLogo}
+            textClassName={styles.headerLogoText}
+            planeClassName={styles.headerLogoPlane}
+          />
 
           <div className={styles.navActions}>
             <Link to="/hitta-bokning" className={styles.findBookingButton}>
@@ -802,7 +820,7 @@ export default function HomeSearchHero() {
         <div className={styles.heroText}>
           <h1>Din nästa resa börjar här.</h1>
           <p>
-            Upptäck Nordens mest magiska platser.
+            Upptäck Världens magiska platser.
             <br />
             Naturen. Kulturen. Lugnet.
           </p>
@@ -836,7 +854,11 @@ export default function HomeSearchHero() {
         </div>
 
         <div className={styles.searchArea}>
-          <div className={styles.searchBar}>
+          <div
+            className={`${styles.searchBar} ${
+              tripType === "oneway" ? styles.searchBarOneWay : ""
+            }`}
+          >
             <div className={styles.placeFieldWrap} ref={originBoxRef}>
               <label className={styles.searchField}>
                 <MapPin size={26} />

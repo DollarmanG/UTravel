@@ -13,18 +13,41 @@ function mapTitle(passenger) {
   return passenger?.gender === "f" ? "ms" : "mr";
 }
 
-function getDuffelPassengerId(booking, index) {
-  const offerPassengers = Array.isArray(booking?.offerSnapshot?.passengers)
+/*
+  Viktigt:
+  Duffel passenger ID ska hämtas från booking.offerSnapshot.passengers[index].id.
+  Vi ska INTE använda passenger.id från databasen, eftersom det kan vara Prisma-ID.
+*/
+function getOfferPassengers(booking) {
+  return Array.isArray(booking?.offerSnapshot?.passengers)
     ? booking.offerSnapshot.passengers
     : [];
+}
 
+function getDuffelPassengerByIndex(booking, index) {
+  const offerPassengers = getOfferPassengers(booking);
   const duffelPassenger = offerPassengers[index];
 
   if (!duffelPassenger?.id) {
     throw new Error(`Duffel passenger id saknas för passagerare ${index + 1}.`);
   }
 
-  return duffelPassenger.id;
+  return duffelPassenger;
+}
+
+function normalizePassengerType(passenger, duffelPassenger) {
+  const fromDuffel = String(duffelPassenger?.type || "").toLowerCase();
+  const fromDb = String(passenger?.type || "").toLowerCase();
+
+  if (
+    fromDuffel === "infant_without_seat" ||
+    fromDb === "infant_without_seat" ||
+    fromDb === "infant"
+  ) {
+    return "infant_without_seat";
+  }
+
+  return "adult";
 }
 
 function mapPassengerForDuffel(passenger, booking, index) {
@@ -48,9 +71,12 @@ function mapPassengerForDuffel(passenger, booking, index) {
     throw new Error("phone_number saknas i booking.");
   }
 
+  const duffelPassenger = getDuffelPassengerByIndex(booking, index);
+  const type = normalizePassengerType(passenger, duffelPassenger);
+
   return {
-    id: getDuffelPassengerId(booking, index),
-    type: passenger.type || "adult",
+    id: duffelPassenger.id,
+    type,
     title: mapTitle(passenger),
     given_name: passenger.givenName,
     family_name: passenger.familyName,
@@ -59,6 +85,41 @@ function mapPassengerForDuffel(passenger, booking, index) {
     email: booking.customerEmail,
     phone_number: booking.phoneNumber,
   };
+}
+
+function attachInfantsToAdults(passengers) {
+  const adults = passengers.filter((passenger) => passenger.type === "adult");
+  const infants = passengers.filter(
+    (passenger) => passenger.type === "infant_without_seat"
+  );
+
+  if (infants.length === 0) {
+    return passengers;
+  }
+
+  if (infants.length > adults.length) {
+    throw new Error(
+      "Antalet barn 0–2 år utan egen stol får inte vara fler än antalet vuxna."
+    );
+  }
+
+  return passengers.map((passenger) => {
+    if (passenger.type !== "adult") {
+      return passenger;
+    }
+
+    const adultIndex = adults.findIndex((adult) => adult.id === passenger.id);
+    const infant = infants[adultIndex];
+
+    if (!infant) {
+      return passenger;
+    }
+
+    return {
+      ...passenger,
+      infant_passenger_id: infant.id,
+    };
+  });
 }
 
 function buildDuffelOrderPayload(booking) {
@@ -84,8 +145,30 @@ function buildDuffelOrderPayload(booking) {
     throw new Error("original_amount eller original_currency saknas i booking.");
   }
 
-  const passengers = booking.passengers.map((passenger, index) =>
+  const offerPassengers = getOfferPassengers(booking);
+
+  if (offerPassengers.length < booking.passengers.length) {
+    throw new Error(
+      `Duffel offer saknar passenger ids. Offer har ${offerPassengers.length}, booking har ${booking.passengers.length}.`
+    );
+  }
+
+  const mappedPassengers = booking.passengers.map((passenger, index) =>
     mapPassengerForDuffel(passenger, booking, index)
+  );
+
+  const passengers = attachInfantsToAdults(mappedPassengers);
+
+  console.log(
+    "Duffel order passengers:",
+    passengers.map((passenger) => ({
+      id: passenger.id,
+      type: passenger.type,
+      infant_passenger_id: passenger.infant_passenger_id || null,
+      given_name: passenger.given_name,
+      family_name: passenger.family_name,
+      born_on: passenger.born_on,
+    }))
   );
 
   return {
@@ -127,6 +210,30 @@ function isAlreadyBookedOfferError(error) {
   );
 }
 
+function isOfferUnavailableError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const errors = Array.isArray(error?.data?.errors) ? error.data.errors : [];
+
+  const hasDuffelCode = errors.some((item) => {
+    const code = String(item?.code || "").toLowerCase();
+    const title = String(item?.title || "").toLowerCase();
+    const itemMessage = String(item?.message || "").toLowerCase();
+
+    return (
+      code.includes("offer_no_longer_available") ||
+      title.includes("no longer available") ||
+      itemMessage.includes("no longer available")
+    );
+  });
+
+  return (
+    hasDuffelCode ||
+    message.includes("offer_no_longer_available") ||
+    message.includes("no longer available") ||
+    message.includes("not available")
+  );
+}
+
 async function confirmBookingFromCheckoutSession(session) {
   const sessionId = session.id;
 
@@ -140,11 +247,6 @@ async function confirmBookingFromCheckoutSession(session) {
     throw new Error(`Ingen booking hittades för session ${sessionId}.`);
   }
 
-  /**
-   * Viktigt:
-   * Stripe kan skicka samma webhook flera gånger.
-   * Då får vi absolut inte skapa en ny Duffel-order igen.
-   */
   if (hasDuffelOrder(booking)) {
     console.log("Booking already has Duffel order / confirmed, skipping:", {
       bookingReference: booking.bookingReference,
@@ -164,10 +266,6 @@ async function confirmBookingFromCheckoutSession(session) {
     session.payment_status || null
   );
 
-  /**
-   * Hämta bokningen igen efter payment update.
-   * Detta minskar risken att vi jobbar med gammal status/data.
-   */
   const freshBooking = await getBookingBySessionId(sessionId);
 
   if (!freshBooking) {
@@ -203,14 +301,15 @@ async function confirmBookingFromCheckoutSession(session) {
       bookingReference: freshBooking.bookingReference,
     });
   } catch (error) {
-    /**
-     * Detta är det vanliga felet när man återanvänder samma Duffel offer.
-     * Det ska bli confirmation_failed för denna booking.
-     */
     if (isAlreadyBookedOfferError(error)) {
       await markBookingConfirmationFailed(
         sessionId,
         "Duffel offer har redan bokats. Gör en ny flygsökning och välj ett nytt offer."
+      );
+    } else if (isOfferUnavailableError(error)) {
+      await markBookingConfirmationFailed(
+        sessionId,
+        "Priset eller tillgängligheten har ändrats. Gör en ny flygsökning och välj ett nytt offer."
       );
     } else {
       await markBookingConfirmationFailed(sessionId, error.message);
@@ -219,11 +318,6 @@ async function confirmBookingFromCheckoutSession(session) {
     throw error;
   }
 
-  /**
-   * Viktigt:
-   * När Duffel-order väl är skapad får vi inte hamna i confirmation_failed
-   * bara för att en DB-update eller liknande strular efteråt.
-   */
   try {
     const confirmed = await confirmBooking({
       sessionId,
@@ -245,11 +339,6 @@ async function confirmBookingFromCheckoutSession(session) {
       bookingReference: freshBooking.bookingReference,
     });
 
-    /**
-     * Kasta felet så ni ser det i backend-loggen,
-     * men skriv INTE över till confirmation_failed här.
-     * Annars kan en faktiskt skapad Duffel-order visas som manuell kontroll.
-     */
     throw error;
   }
 }
